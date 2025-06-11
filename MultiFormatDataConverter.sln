@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiFormatDataConverter", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "_build", "build\_build.csproj", "{3E474C99-B896-4C55-83A9-9128465E0197}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiFormatDataConverter.UnitTest", "MultiFormatDataConverter.UnitTest\MultiFormatDataConverter.UnitTest.csproj", "{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,18 @@ Global
 		{3E474C99-B896-4C55-83A9-9128465E0197}.Release|x64.Build.0 = Release|Any CPU
 		{3E474C99-B896-4C55-83A9-9128465E0197}.Release|x86.ActiveCfg = Release|Any CPU
 		{3E474C99-B896-4C55-83A9-9128465E0197}.Release|x86.Build.0 = Release|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Debug|x64.Build.0 = Debug|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Debug|x86.Build.0 = Debug|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Release|x64.ActiveCfg = Release|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Release|x64.Build.0 = Release|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Release|x86.ActiveCfg = Release|Any CPU
+		{DF3B45BA-A1D2-4620-AFE0-4B2E6731DEA3}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

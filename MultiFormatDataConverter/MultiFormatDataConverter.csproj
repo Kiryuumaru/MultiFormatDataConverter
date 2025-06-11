@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>13</LangVersion>
+		<IsAotCompatible>true</IsAotCompatible>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Authors>Kiryuumaru</Authors>
+		<Company>Kiryuumaru</Company>
+		<Copyright>Kiryuumaru</Copyright>
+		<Description>Convert data between JSON, YAML, and XML formats. Multi-format serialization and deserialization helpers for .NET.</Description>
+		<PackageTags>Data, Converter, JSON, YAML, XML, Serialization, Deserialization, MultiFormat, .NET</PackageTags>
+		<PackageProjectUrl>https://github.com/Kiryuumaru/MultiFormatDataConverter</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/Kiryuumaru/MultiFormatDataConverter</RepositoryUrl>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="LICENSE" Pack="true" PackagePath="" />
+		<None Include="README.md" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="YamlDotNet" Version="16.3.0" />
+	</ItemGroup>
+
+</Project>

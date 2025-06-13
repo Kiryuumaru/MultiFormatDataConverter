@@ -35,8 +35,6 @@ public static class JsonValidator
             if (value1.GetValueKind() == value2.GetValueKind())
             {
                 // Compare the underlying values
-                //var rawValue1 = value1.GetValue<object>();
-                //var rawValue2 = value2.GetValue<object>();
                 var rawValue1 = value1.ToJsonString();
                 var rawValue2 = value2.ToJsonString();
 

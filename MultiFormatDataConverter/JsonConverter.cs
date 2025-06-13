@@ -392,7 +392,7 @@ public static class JsonConverter
     {
         ArgumentNullException.ThrowIfNull(jsonObject);
 
-        return ToXmlDocument(jsonObject, rootElementName);
+        return ToXmlDocument(jsonObject as JsonNode, rootElementName);
     }
 
     /// <summary>
@@ -814,6 +814,25 @@ public static class JsonConverter
             result = "x_" + result;
 
         return result == string.Empty ? "element" : result;
+    }
+
+    internal static JsonValue? CreateJsonValue(string? value)
+    {
+        if (bool.TryParse(value, out var boolVal))
+            return JsonValue.Create(boolVal);
+        if (int.TryParse(value, out var intVal))
+            return JsonValue.Create(intVal);
+        if (long.TryParse(value, out var longVal))
+            return JsonValue.Create(longVal);
+        if (double.TryParse(value, out var doubleVal))
+            return JsonValue.Create(doubleVal);
+        if (decimal.TryParse(value, out var decimalVal))
+            return JsonValue.Create(decimalVal);
+        if (DateTime.TryParse(value, out var dateTimeVal))
+            return JsonValue.Create(dateTimeVal);
+        if (DateTimeOffset.TryParse(value, out var dateTimeOffsetVal))
+            return JsonValue.Create(dateTimeOffsetVal);
+        return JsonValue.Create(value);
     }
 
     #endregion

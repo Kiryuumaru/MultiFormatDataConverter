@@ -41,21 +41,7 @@ public static class YamlConverter
             switch (node)
             {
                 case YamlScalarNode scalarNode:
-                    if (bool.TryParse(scalarNode.Value, out var boolVal))
-                        return JsonValue.Create(boolVal);
-                    if (int.TryParse(scalarNode.Value, out var intVal))
-                        return JsonValue.Create(intVal);
-                    if (long.TryParse(scalarNode.Value, out var longVal))
-                        return JsonValue.Create(longVal);
-                    if (double.TryParse(scalarNode.Value, out var doubleVal))
-                        return JsonValue.Create(doubleVal);
-                    if (decimal.TryParse(scalarNode.Value, out var decimalVal))
-                        return JsonValue.Create(decimalVal);
-                    if (DateTime.TryParse(scalarNode.Value, out var dateTimeVal))
-                        return JsonValue.Create(dateTimeVal);
-                    if (DateTimeOffset.TryParse(scalarNode.Value, out var dateTimeOffsetVal))
-                        return JsonValue.Create(dateTimeOffsetVal);
-                    return JsonValue.Create(scalarNode.Value);
+                    return JsonConverter.CreateJsonValue(scalarNode.Value);
 
                 case YamlSequenceNode sequenceNode:
                     return CreateJsonArray(sequenceNode);

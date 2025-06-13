@@ -58,7 +58,6 @@ public class JsonUnitTest
         Assert.True(JsonNode.DeepEquals(expectedJsonArray, roundTrip_JsonArray_ToJsonDocument_ToTest));
     }
 
-
     [Fact]
     public void ToYaml()
     {
@@ -95,5 +94,43 @@ public class JsonUnitTest
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonObject_ToYaml[0]);
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonNode_ToYaml[0]);
         JsonValidator.AreEqual(expectedJsonArray, roundTrip_JsonArray_ToYaml[0]);
+    }
+
+    [Fact]
+    public void ToXml()
+    {
+        // Arrange
+        var jsonString = DataSamples.JsonSample;
+        var expectedJsonDocument = JsonSerializer.Deserialize<JsonDocument>(jsonString);
+        var expectedJsonObject = JsonSerializer.Deserialize<JsonObject>(jsonString);
+        var expectedJsonNode = JsonSerializer.Deserialize<JsonNode>(jsonString);
+        var expectedJsonArray = new JsonArray(expectedJsonObject?.DeepClone(), expectedJsonObject?.DeepClone());
+
+        // Act
+        var converted_JsonDocument_ToXmlDocument = expectedJsonDocument?.ToXmlDocument()!;
+        var converted_JsonObject_ToXmlDocument = expectedJsonObject?.ToXmlDocument()!;
+        var converted_JsonNode_ToXmlDocument = expectedJsonNode?.ToXmlDocument()!;
+        var converted_JsonArray_ToXmlDocument = expectedJsonArray?.ToXmlDocument()!;
+
+        var roundTrip_JsonDocument_ToXmlDocument = converted_JsonDocument_ToXmlDocument?.ToJsonNode()!;
+        var roundTrip_JsonObject_ToXmlDocument = converted_JsonObject_ToXmlDocument?.ToJsonNode()!;
+        var roundTrip_JsonNode_ToXmlDocument = converted_JsonNode_ToXmlDocument?.ToJsonNode()!;
+        var roundTrip_JsonArray_ToXmlDocument = converted_JsonArray_ToXmlDocument?.ToJsonNode()!;
+
+        // Assert
+        Assert.NotNull(converted_JsonDocument_ToXmlDocument);
+        Assert.NotNull(converted_JsonObject_ToXmlDocument);
+        Assert.NotNull(converted_JsonNode_ToXmlDocument);
+        Assert.NotNull(converted_JsonArray_ToXmlDocument);
+
+        Assert.NotNull(roundTrip_JsonDocument_ToXmlDocument);
+        Assert.NotNull(roundTrip_JsonObject_ToXmlDocument);
+        Assert.NotNull(roundTrip_JsonNode_ToXmlDocument);
+        Assert.NotNull(roundTrip_JsonArray_ToXmlDocument);
+
+        JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonDocument_ToXmlDocument);
+        JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonObject_ToXmlDocument);
+        JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonNode_ToXmlDocument);
+        JsonValidator.AreEqual(expectedJsonArray, roundTrip_JsonArray_ToXmlDocument);
     }
 }

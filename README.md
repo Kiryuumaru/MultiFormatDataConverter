@@ -72,6 +72,7 @@ The library provides three main static classes:
 
 ## Framework Support
 
+- .NET STANDARD 2.0
 - .NET 6.0
 - .NET 7.0
 - .NET 8.0
@@ -84,5 +85,3 @@ This project is licensed under the terms specified in the LICENSE.txt file.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-I'm using the active document because you have the checkmark checked. You can include additional context using **#** references. Typing **#** opens a completion list of available context.

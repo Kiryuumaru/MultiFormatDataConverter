@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -9,6 +7,12 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using YamlDotNet.RepresentationModel;
+
+#if NETSTANDARD
+using ArgumentNullException = MultiFormatDataConverter.Polyfill.ArgumentNullException;
+#else
+using ArgumentNullException = System.ArgumentNullException;
+#endif
 
 namespace MultiFormatDataConverter;
 
@@ -325,6 +329,7 @@ public static class XmlConverter
     public static YamlStream ToYamlStream(this XDocument xDocument)
     {
         ArgumentNullException.ThrowIfNull(xDocument);
+
         return xDocument.ToXmlDocument().ToYamlStream();
     }
 

@@ -21,16 +21,39 @@ public static class JsonConverter
     /// <summary>
     /// Converts a <see cref="JsonObject"/> to a <see cref="JsonDocument"/> asynchronously.
     /// </summary>
+    /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the <see cref="JsonDocument"/> representation of the <see cref="JsonObject"/>.</returns>
+    public static async Task<JsonDocument> ToJsonDocument(this JsonNode jsonNode, CancellationToken cancellationToken = default)
+    {
+        await using var stream = new MemoryStream();
+        await using var utf8JsonWriter = new Utf8JsonWriter(stream);
+        jsonNode.WriteTo(utf8JsonWriter);
+        await utf8JsonWriter.FlushAsync(cancellationToken);
+        stream.Seek(0, SeekOrigin.Begin);
+        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonObject"/> to a <see cref="JsonDocument"/> asynchronously.
+    /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the <see cref="JsonDocument"/> representation of the <see cref="JsonObject"/>.</returns>
     public static async Task<JsonDocument> ToJsonDocument(this JsonObject jsonObject, CancellationToken cancellationToken = default)
     {
-        await using var stream = new MemoryStream();
-        await using var utf8JsonWriter = new Utf8JsonWriter(stream);
-        jsonObject.WriteTo(utf8JsonWriter);
-        stream.Position = 0;
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        return await ToJsonDocument(jsonObject as JsonNode, cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonObject"/> to a <see cref="JsonDocument"/> asynchronously.
+    /// </summary>
+    /// <param name="jsonArray">The <see cref="JsonArray"/> to convert.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the <see cref="JsonDocument"/> representation of the <see cref="JsonObject"/>.</returns>
+    public static async Task<JsonDocument> ToJsonDocument(this JsonArray jsonArray, CancellationToken cancellationToken = default)
+    {
+        return await ToJsonDocument(jsonArray as JsonNode, cancellationToken);
     }
 
     /// <summary>
@@ -43,11 +66,10 @@ public static class JsonConverter
     public static async Task<JsonNode> ToJsonNode(this JsonDocument jsonDocument, CancellationToken cancellationToken = default)
     {
         await using var stream = new MemoryStream();
-        await using var writer = new Utf8JsonWriter(stream);
-        jsonDocument.WriteTo(writer);
-        await writer.FlushAsync(cancellationToken);
-
-        stream.Position = 0;
+        await using var utf8JsonWriter = new Utf8JsonWriter(stream);
+        jsonDocument.WriteTo(utf8JsonWriter);
+        await utf8JsonWriter.FlushAsync(cancellationToken);
+        stream.Seek(0, SeekOrigin.Begin);
 #if NET8_0_OR_GREATER
         return await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken) ?? throw new InvalidOperationException("Failed to parse JSON document as node.");
 #else
@@ -100,7 +122,7 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON nodes.</returns>
     public static YamlStream ToYamlStream(this IEnumerable<JsonNode?> jsonNodes)
     {
-        static YamlNode ConvertJsonElementToYamlNode(JsonNode? node)
+        static YamlNode ConvertJsonNodeToYamlNode(JsonNode? node)
         {
             if (node == null)
             {
@@ -128,7 +150,7 @@ public static class JsonConverter
             var mapping = new YamlMappingNode();
             foreach (var prop in node.AsObject())
             {
-                mapping.Add(new YamlScalarNode(prop.Key), ConvertJsonElementToYamlNode(prop.Value));
+                mapping.Add(new YamlScalarNode(prop.Key), ConvertJsonNodeToYamlNode(prop.Value));
             }
             return mapping;
         }
@@ -138,7 +160,7 @@ public static class JsonConverter
             var sequence = new YamlSequenceNode();
             foreach (var item in node.AsArray())
             {
-                sequence.Add(ConvertJsonElementToYamlNode(item));
+                sequence.Add(ConvertJsonNodeToYamlNode(item));
             }
             return sequence;
         }
@@ -165,7 +187,7 @@ public static class JsonConverter
 
         foreach (var jsonNode in jsonNodes)
         {
-            var yamlRoot = ConvertJsonElementToYamlNode(jsonNode);
+            var yamlRoot = ConvertJsonNodeToYamlNode(jsonNode);
             var yamlDoc = new YamlDocument(yamlRoot);
             yamlStream.Add(yamlDoc);
         }
@@ -326,7 +348,7 @@ public static class JsonConverter
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON object.</returns>
     public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root")
     {
-        return ToXmlDocument((JsonNode)jsonObject, rootElementName);
+        return ToXmlDocument(jsonObject, rootElementName);
     }
 
     /// <summary>

@@ -28,13 +28,34 @@ public static class YamlConverter
         {
             if (node == null) return null;
 
-            return node switch
+            switch (node)
             {
-                YamlScalarNode scalarNode => JsonValue.Create(scalarNode.Value),
-                YamlSequenceNode sequenceNode => CreateJsonArray(sequenceNode),
-                YamlMappingNode mappingNode => CreateJsonObject(mappingNode),
-                _ => null
-            };
+                case YamlScalarNode scalarNode:
+                    if (bool.TryParse(scalarNode.Value, out var boolVal))
+                        return JsonValue.Create(boolVal);
+                    if (int.TryParse(scalarNode.Value, out var intVal))
+                        return JsonValue.Create(intVal);
+                    if (long.TryParse(scalarNode.Value, out var longVal))
+                        return JsonValue.Create(longVal);
+                    if (double.TryParse(scalarNode.Value, out var doubleVal))
+                        return JsonValue.Create(doubleVal);
+                    if (decimal.TryParse(scalarNode.Value, out var decimalVal))
+                        return JsonValue.Create(decimalVal);
+                    if (DateTime.TryParse(scalarNode.Value, out var dateTimeVal))
+                        return JsonValue.Create(dateTimeVal);
+                    if (DateTimeOffset.TryParse(scalarNode.Value, out var dateTimeOffsetVal))
+                        return JsonValue.Create(dateTimeOffsetVal);
+                    return JsonValue.Create(scalarNode.Value);
+
+                case YamlSequenceNode sequenceNode:
+                    return CreateJsonArray(sequenceNode);
+
+                case YamlMappingNode mappingNode:
+                    return CreateJsonObject(mappingNode);
+
+                default:
+                    return null;
+            }
         }
 
         static JsonArray CreateJsonArray(YamlSequenceNode sequenceNode)

@@ -595,7 +595,7 @@ public static class JsonConverter
     /// <returns>An <see cref="XDocument"/> representing the converted JSON object.</returns>
     public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root")
     {
-        return ToXDocument(jsonObject, rootElementName);
+        return ToXDocument(jsonObject as JsonNode, rootElementName);
     }
 
     /// <summary>

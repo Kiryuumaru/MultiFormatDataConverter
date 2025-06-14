@@ -10,12 +10,12 @@ namespace MultiFormatDataConverter.UnitTest;
 
 public static class JsonValidator
 {
-    public static void AreEqual(JsonNode? node1, JsonNode? node2)
+    public static void AreEqual(JsonNode? node1, JsonNode? node2, bool nullIsEmpty = false)
     {
-        AreEqualInternal(node1, node2, "$");
+        AreEqualInternal(node1, node2, "$", nullIsEmpty);
     }
 
-    private static void AreEqualInternal(JsonNode? node1, JsonNode? node2, string path)
+    private static void AreEqualInternal(JsonNode? node1, JsonNode? node2, string path, bool nullIsEmpty)
     {
         // Both null case
         if (node1 == null && node2 == null)
@@ -26,7 +26,20 @@ public static class JsonValidator
         // One null, one not null case
         if (node1 == null || node2 == null)
         {
-            throw new JsonComparisonException($"Property {path}: Expected {FormatValue(node1)}, Actual {FormatValue(node2)}");
+            if (nullIsEmpty)
+            {
+                var rawValue1 = FormatValue(node1);
+                var rawValue2 = FormatValue(node2);
+                if (!(rawValue1 is null || rawValue1.Equals("null") || rawValue1.Equals("{}") || rawValue1.Equals("")) ||
+                    !(rawValue2 is null || rawValue2.Equals("null") || rawValue2.Equals("{}") || rawValue2.Equals("")))
+                {
+                    throw new JsonComparisonException($"Property {path}: Expected {FormatValue(node1)}, Actual {FormatValue(node2)}");
+                }
+            }
+            else
+            {
+                throw new JsonComparisonException($"Property {path}: Expected {FormatValue(node1)}, Actual {FormatValue(node2)}");
+            }
         }
 
         // JsonValue comparison
@@ -47,6 +60,15 @@ public static class JsonValidator
                     }
 
                     return;
+                }
+
+                if (nullIsEmpty)
+                {
+                    if ((rawValue1 is null || rawValue1.Equals("null") || rawValue1.Equals("{}") || rawValue1.Equals("")) &&
+                        (rawValue2 is null || rawValue2.Equals("null") || rawValue2.Equals("{}") || rawValue2.Equals("")))
+                    {
+                        return;
+                    }
                 }
 
                 if (!Equals(rawValue1, rawValue2))
@@ -93,7 +115,7 @@ public static class JsonValidator
 
                 var childPath = $"{path}.{property.Key}";
 
-                AreEqualInternal(property.Value, obj2[property.Key], childPath);
+                AreEqualInternal(property.Value, obj2[property.Key], childPath, nullIsEmpty);
             }
 
             return;
@@ -111,16 +133,27 @@ public static class JsonValidator
             for (int i = 0; i < array1.Count; i++)
             {
                 var childPath = $"{path}[{i}]";
-                AreEqualInternal(array1[i], array2[i], childPath);
+                AreEqualInternal(array1[i], array2[i], childPath, nullIsEmpty);
             }
 
             return;
         }
 
         // Different types
-        if (node1.GetType() != node2.GetType())
+        if (node1?.GetType() != node2?.GetType())
         {
-            throw new JsonComparisonException($"Property {path}: Type mismatch. Expected {node1.GetType().Name}, Actual {node2.GetType().Name}");
+            if (nullIsEmpty)
+            {
+                var rawValue1 = FormatValue(node1);
+                var rawValue2 = FormatValue(node2);
+                if ((rawValue1 is null || rawValue1.Equals("null") || rawValue1.Equals("{}") || rawValue1.Equals("")) &&
+                    (rawValue2 is null || rawValue2.Equals("null") || rawValue2.Equals("{}") || rawValue2.Equals("")))
+                {
+                    return;
+                }
+            }
+
+            throw new JsonComparisonException($"Property {path}: Type mismatch. Expected {node1?.GetType().Name}, Actual {node2?.GetType().Name}");
         }
 
         // If we get here, we don't know how to compare these nodes

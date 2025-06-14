@@ -9,6 +9,12 @@ using System.Xml.Linq;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 
+#if NETSTANDARD
+using ArgumentNullException = MultiFormatDataConverter.Polyfill.ArgumentNullException;
+#else
+using ArgumentNullException = System.ArgumentNullException;
+#endif
+
 namespace MultiFormatDataConverter;
 
 /// <summary>
@@ -21,16 +27,49 @@ public static class JsonConverter
     /// <summary>
     /// Converts a <see cref="JsonObject"/> to a <see cref="JsonDocument"/> asynchronously.
     /// </summary>
+    /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the <see cref="JsonDocument"/> representation of the <see cref="JsonObject"/>.</returns>
+    public static async Task<JsonDocument> ToJsonDocument(this JsonNode jsonNode, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(jsonNode);
+
+#if NETSTANDARD
+        using var stream = new MemoryStream();
+#else
+        await using var stream = new MemoryStream();
+#endif
+        await using var utf8JsonWriter = new Utf8JsonWriter(stream);
+        jsonNode.WriteTo(utf8JsonWriter);
+        await utf8JsonWriter.FlushAsync(cancellationToken);
+        stream.Seek(0, SeekOrigin.Begin);
+        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonObject"/> to a <see cref="JsonDocument"/> asynchronously.
+    /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the <see cref="JsonDocument"/> representation of the <see cref="JsonObject"/>.</returns>
     public static async Task<JsonDocument> ToJsonDocument(this JsonObject jsonObject, CancellationToken cancellationToken = default)
     {
-        await using var stream = new MemoryStream();
-        await using var utf8JsonWriter = new Utf8JsonWriter(stream);
-        jsonObject.WriteTo(utf8JsonWriter);
-        stream.Position = 0;
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        ArgumentNullException.ThrowIfNull(jsonObject);
+
+        return await ToJsonDocument(jsonObject as JsonNode, cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonObject"/> to a <see cref="JsonDocument"/> asynchronously.
+    /// </summary>
+    /// <param name="jsonArray">The <see cref="JsonArray"/> to convert.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the <see cref="JsonDocument"/> representation of the <see cref="JsonObject"/>.</returns>
+    public static async Task<JsonDocument> ToJsonDocument(this JsonArray jsonArray, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(jsonArray);
+
+        return await ToJsonDocument(jsonArray as JsonNode, cancellationToken);
     }
 
     /// <summary>
@@ -42,12 +81,17 @@ public static class JsonConverter
     /// <exception cref="InvalidOperationException">Thrown if parsing the JSON document as a node fails.</exception>
     public static async Task<JsonNode> ToJsonNode(this JsonDocument jsonDocument, CancellationToken cancellationToken = default)
     {
-        await using var stream = new MemoryStream();
-        await using var writer = new Utf8JsonWriter(stream);
-        jsonDocument.WriteTo(writer);
-        await writer.FlushAsync(cancellationToken);
+        ArgumentNullException.ThrowIfNull(jsonDocument);
 
-        stream.Position = 0;
+#if NETSTANDARD
+        using var stream = new MemoryStream();
+#else
+        await using var stream = new MemoryStream();
+#endif
+        await using var utf8JsonWriter = new Utf8JsonWriter(stream);
+        jsonDocument.WriteTo(utf8JsonWriter);
+        await utf8JsonWriter.FlushAsync(cancellationToken);
+        stream.Seek(0, SeekOrigin.Begin);
 #if NET8_0_OR_GREATER
         return await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken) ?? throw new InvalidOperationException("Failed to parse JSON document as node.");
 #else
@@ -64,6 +108,8 @@ public static class JsonConverter
     /// <exception cref="InvalidOperationException">Thrown if the root element of the JSON document is not an object or if parsing fails.</exception>
     public static async Task<JsonObject> ToJsonObject(this JsonDocument jsonDocument, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(jsonDocument);
+
         if (jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
         {
             throw new InvalidOperationException("The JSON document root element is not an object.");
@@ -81,6 +127,8 @@ public static class JsonConverter
     /// <exception cref="InvalidOperationException">Thrown if the root element of the JSON document is not an array or if parsing fails.</exception>
     public static async Task<JsonArray> ToJsonArray(this JsonDocument jsonDocument, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(jsonDocument);
+
         if (jsonDocument.RootElement.ValueKind != JsonValueKind.Array)
         {
             throw new InvalidOperationException("The JSON document root element is not an array.");
@@ -89,7 +137,7 @@ public static class JsonConverter
         return jsonNode.AsArray();
     }
 
-    #endregion
+#endregion
 
     #region ToYaml
 
@@ -100,7 +148,9 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON nodes.</returns>
     public static YamlStream ToYamlStream(this IEnumerable<JsonNode?> jsonNodes)
     {
-        static YamlNode ConvertJsonElementToYamlNode(JsonNode? node)
+        ArgumentNullException.ThrowIfNull(jsonNodes);
+
+        static YamlNode ConvertJsonNodeToYamlNode(JsonNode? node)
         {
             if (node == null)
             {
@@ -128,7 +178,7 @@ public static class JsonConverter
             var mapping = new YamlMappingNode();
             foreach (var prop in node.AsObject())
             {
-                mapping.Add(new YamlScalarNode(prop.Key), ConvertJsonElementToYamlNode(prop.Value));
+                mapping.Add(new YamlScalarNode(prop.Key), ConvertJsonNodeToYamlNode(prop.Value));
             }
             return mapping;
         }
@@ -138,7 +188,7 @@ public static class JsonConverter
             var sequence = new YamlSequenceNode();
             foreach (var item in node.AsArray())
             {
-                sequence.Add(ConvertJsonElementToYamlNode(item));
+                sequence.Add(ConvertJsonNodeToYamlNode(item));
             }
             return sequence;
         }
@@ -165,7 +215,7 @@ public static class JsonConverter
 
         foreach (var jsonNode in jsonNodes)
         {
-            var yamlRoot = ConvertJsonElementToYamlNode(jsonNode);
+            var yamlRoot = ConvertJsonNodeToYamlNode(jsonNode);
             var yamlDoc = new YamlDocument(yamlRoot);
             yamlStream.Add(yamlDoc);
         }
@@ -180,6 +230,8 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON objects.</returns>
     public static YamlStream ToYamlStream(this IEnumerable<JsonObject?> jsonObjects)
     {
+        ArgumentNullException.ThrowIfNull(jsonObjects);
+
         return ToYamlStream(jsonObjects.AsEnumerable<JsonNode?>());
     }
 
@@ -190,6 +242,8 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON objects.</returns>
     public static YamlStream ToYamlStream(this IEnumerable<JsonArray?> jsonArrays)
     {
+        ArgumentNullException.ThrowIfNull(jsonArrays);
+
         return ToYamlStream(jsonArrays.AsEnumerable<JsonNode?>());
     }
 
@@ -200,6 +254,8 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON documents.</returns>
     public static YamlStream ToYamlStream(this IEnumerable<JsonDocument?> jsonDocuments)
     {
+        ArgumentNullException.ThrowIfNull(jsonDocuments);
+
         static YamlNode ConvertJsonElementToYamlNode(JsonElement? element)
         {
             if (!element.HasValue)
@@ -273,6 +329,8 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON object.</returns>
     public static YamlStream ToYamlStream(this JsonNode jsonNode)
     {
+        ArgumentNullException.ThrowIfNull(jsonNode);
+
         return new[] { jsonNode }.ToYamlStream();
     }
 
@@ -283,6 +341,8 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON object.</returns>
     public static YamlStream ToYamlStream(this JsonArray jsonArray)
     {
+        ArgumentNullException.ThrowIfNull(jsonArray);
+
         return new[] { jsonArray }.ToYamlStream();
     }
 
@@ -293,6 +353,8 @@ public static class JsonConverter
     /// <returns>A <see cref="YamlStream"/> representing the converted JSON document.</returns>
     public static YamlStream ToYamlStream(this JsonDocument jsonDocument)
     {
+        ArgumentNullException.ThrowIfNull(jsonDocument);
+
         return new[] { jsonDocument }.ToYamlStream();
     }
 
@@ -308,6 +370,8 @@ public static class JsonConverter
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON node.</returns>
     public static XmlDocument ToXmlDocument(this JsonNode jsonNode, string rootElementName = "root")
     {
+        ArgumentNullException.ThrowIfNull(jsonNode);
+
         var document = new XmlDocument();
         document.AppendChild(document.CreateXmlDeclaration("1.0", "utf-8", null));
         var root = document.CreateElement(rootElementName);
@@ -326,7 +390,9 @@ public static class JsonConverter
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON object.</returns>
     public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root")
     {
-        return ToXmlDocument((JsonNode)jsonObject, rootElementName);
+        ArgumentNullException.ThrowIfNull(jsonObject);
+
+        return ToXmlDocument(jsonObject as JsonNode, rootElementName);
     }
 
     /// <summary>
@@ -338,6 +404,8 @@ public static class JsonConverter
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON array.</returns>
     public static XmlDocument ToXmlDocument(this JsonArray jsonArray, string rootElementName = "root", string itemElementName = "item")
     {
+        ArgumentNullException.ThrowIfNull(jsonArray);
+
         var document = new XmlDocument();
         document.AppendChild(document.CreateXmlDeclaration("1.0", "utf-8", null));
         var root = document.CreateElement(rootElementName);
@@ -361,6 +429,8 @@ public static class JsonConverter
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON document.</returns>
     public static XmlDocument ToXmlDocument(this JsonDocument jsonDocument, string rootElementName = "root")
     {
+        ArgumentNullException.ThrowIfNull(jsonDocument);
+
         var document = new XmlDocument();
         document.AppendChild(document.CreateXmlDeclaration("1.0", "utf-8", null));
         var root = document.CreateElement(rootElementName);
@@ -525,7 +595,7 @@ public static class JsonConverter
     /// <returns>An <see cref="XDocument"/> representing the converted JSON object.</returns>
     public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root")
     {
-        return ToXDocument(jsonObject, rootElementName);
+        return ToXDocument(jsonObject as JsonNode, rootElementName);
     }
 
     /// <summary>
@@ -737,13 +807,32 @@ public static class JsonConverter
             validChars[i] = XmlConvert.IsXmlChar(c) ? c : '_';
         }
 
-        string result = new string(validChars);
+        string result = new(validChars);
 
         // If the name starts with a number or invalid starting character, prefix it
         if (result.Length > 0 && !XmlConvert.IsStartNCNameChar(result[0]))
             result = "x_" + result;
 
         return result == string.Empty ? "element" : result;
+    }
+
+    internal static JsonValue? CreateJsonValue(string? value)
+    {
+        if (bool.TryParse(value, out var boolVal))
+            return JsonValue.Create(boolVal);
+        if (int.TryParse(value, out var intVal))
+            return JsonValue.Create(intVal);
+        if (long.TryParse(value, out var longVal))
+            return JsonValue.Create(longVal);
+        if (double.TryParse(value, out var doubleVal))
+            return JsonValue.Create(doubleVal);
+        if (decimal.TryParse(value, out var decimalVal))
+            return JsonValue.Create(decimalVal);
+        if (DateTime.TryParse(value, out var dateTimeVal))
+            return JsonValue.Create(dateTimeVal);
+        if (DateTimeOffset.TryParse(value, out var dateTimeOffsetVal))
+            return JsonValue.Create(dateTimeOffsetVal);
+        return JsonValue.Create(value);
     }
 
     #endregion

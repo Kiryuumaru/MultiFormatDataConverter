@@ -5,8 +5,16 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
+
+#if NETSTANDARD
+using ArgumentNullException = MultiFormatDataConverter.Polyfill.ArgumentNullException;
+#else
+using ArgumentNullException = System.ArgumentNullException;
+#endif
 
 namespace MultiFormatDataConverter;
 
@@ -24,17 +32,26 @@ public static class YamlConverter
     /// <returns>An array of <see cref="JsonNode"/> representing each document in the YAML stream.</returns>
     public static JsonNode?[] ToJsonNodeArray(this YamlStream yamlStream)
     {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
         static JsonNode? ConvertYamlNodeToJsonNode(YamlNode? node)
         {
             if (node == null) return null;
 
-            return node switch
+            switch (node)
             {
-                YamlScalarNode scalarNode => JsonValue.Create(scalarNode.Value),
-                YamlSequenceNode sequenceNode => CreateJsonArray(sequenceNode),
-                YamlMappingNode mappingNode => CreateJsonObject(mappingNode),
-                _ => null
-            };
+                case YamlScalarNode scalarNode:
+                    return JsonConverter.CreateJsonValue(scalarNode.Value);
+
+                case YamlSequenceNode sequenceNode:
+                    return CreateJsonArray(sequenceNode);
+
+                case YamlMappingNode mappingNode:
+                    return CreateJsonObject(mappingNode);
+
+                default:
+                    return null;
+            }
         }
 
         static JsonArray CreateJsonArray(YamlSequenceNode sequenceNode)
@@ -76,6 +93,8 @@ public static class YamlConverter
     /// <returns>An array of <see cref="JsonObject"/> representing each document in the YAML stream.</returns>
     public static JsonObject?[] ToJsonObjectArray(this YamlStream yamlStream)
     {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
         var jsonNodes = yamlStream.ToJsonNodeArray();
         return [.. jsonNodes.Select(i => i as JsonObject)];
     }
@@ -87,6 +106,8 @@ public static class YamlConverter
     /// <returns>An array of <see cref="JsonDocument"/> representing each document in the YAML stream.</returns>
     public static JsonDocument?[] ToJsonDocumentArray(this YamlStream yamlStream)
     {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
         var jsonNodes = yamlStream.ToJsonNodeArray();
         var result = new JsonDocument?[jsonNodes.Length];
         for (int i = 0; i < jsonNodes.Length; i++)
@@ -115,6 +136,8 @@ public static class YamlConverter
     /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
     public static JsonObject? ToJsonObject(this YamlStream yamlStream)
     {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
         if (yamlStream.Documents.Count > 1)
         {
             throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToJsonObjectArray)} to convert all documents.");
@@ -132,6 +155,8 @@ public static class YamlConverter
     /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
     public static JsonDocument? ToJsonDocument(this YamlStream yamlStream)
     {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
         if (yamlStream.Documents.Count > 1)
         {
             throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToJsonDocumentArray)} to convert all documents.");
@@ -152,6 +177,8 @@ public static class YamlConverter
     /// <returns>An array of XmlDocument objects representing each document in the YAML stream.</returns>
     public static System.Xml.XmlDocument[] ToXmlDocumentArray(this YamlStream yamlStream)
     {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
         var result = new System.Xml.XmlDocument[yamlStream.Documents.Count];
 
         for (int i = 0; i < yamlStream.Documents.Count; i++)
@@ -175,6 +202,8 @@ public static class YamlConverter
     /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
     public static System.Xml.XmlDocument ToXmlDocument(this YamlStream yamlStream)
     {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
         if (yamlStream.Documents.Count > 1)
         {
             throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToXmlDocumentArray)} to convert all documents.");

@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -9,6 +7,12 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using YamlDotNet.RepresentationModel;
+
+#if NETSTANDARD
+using ArgumentNullException = MultiFormatDataConverter.Polyfill.ArgumentNullException;
+#else
+using ArgumentNullException = System.ArgumentNullException;
+#endif
 
 namespace MultiFormatDataConverter;
 
@@ -228,7 +232,7 @@ public static class XmlConverter
         // Add attributes
         foreach (XmlAttribute attr in element.Attributes)
         {
-            jsonObject.Add($"@{attr.Name}", JsonValue.Create(attr.Value));
+            jsonObject.Add($"@{attr.Name}", JsonConverter.CreateJsonValue(attr.Value));
         }
 
         // Process child nodes
@@ -253,10 +257,10 @@ public static class XmlConverter
             }
         }
 
-        // Add text content if present
+        // Add text content if present, retaining specific types
         if (hasText && !string.IsNullOrWhiteSpace(textContent))
         {
-            jsonObject.Add("#text", JsonValue.Create(textContent));
+            jsonObject.Add("#text", JsonConverter.CreateJsonValue(textContent));
         }
 
         // Add child elements
@@ -280,11 +284,11 @@ public static class XmlConverter
             }
         }
 
-        // If the object only has text content and no attributes or elements, return just the text
+        // If the object only has text content and no attributes or elements, return just the text (with type retained)
         if (hasText && !string.IsNullOrWhiteSpace(textContent) &&
             jsonObject.Count == 1 && jsonObject.ContainsKey("#text"))
         {
-            return JsonValue.Create(textContent);
+            return JsonConverter.CreateJsonValue(textContent);
         }
 
         return jsonObject;
@@ -325,6 +329,7 @@ public static class XmlConverter
     public static YamlStream ToYamlStream(this XDocument xDocument)
     {
         ArgumentNullException.ThrowIfNull(xDocument);
+
         return xDocument.ToXmlDocument().ToYamlStream();
     }
 

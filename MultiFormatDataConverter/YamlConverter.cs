@@ -38,20 +38,13 @@ public static class YamlConverter
         {
             if (node == null) return null;
 
-            switch (node)
+            return node switch
             {
-                case YamlScalarNode scalarNode:
-                    return JsonConverter.CreateJsonValue(scalarNode.Value);
-
-                case YamlSequenceNode sequenceNode:
-                    return CreateJsonArray(sequenceNode);
-
-                case YamlMappingNode mappingNode:
-                    return CreateJsonObject(mappingNode);
-
-                default:
-                    return null;
-            }
+                YamlScalarNode scalarNode => JsonConverter.CreateJsonValue(scalarNode),
+                YamlSequenceNode sequenceNode => CreateJsonArray(sequenceNode),
+                YamlMappingNode mappingNode => CreateJsonObject(mappingNode),
+                _ => null,
+            };
         }
 
         static JsonArray CreateJsonArray(YamlSequenceNode sequenceNode)
@@ -115,8 +108,9 @@ public static class YamlConverter
             if (jsonNodes[i] is JsonNode jsonNode)
             {
                 using var stream = new MemoryStream();
-                using var writer = new Utf8JsonWriter(stream);
-                jsonNode.WriteTo(writer, new JsonSerializerOptions { WriteIndented = true });
+                using var utf8JsonWriter = new Utf8JsonWriter(stream);
+                jsonNode.WriteTo(utf8JsonWriter, new JsonSerializerOptions { WriteIndented = true });
+                utf8JsonWriter.Flush();
                 stream.Seek(0, SeekOrigin.Begin);
                 result[i] = JsonDocument.Parse(stream);
             }
@@ -174,21 +168,22 @@ public static class YamlConverter
     /// Converts a YAML stream to an array of XmlDocument objects.
     /// </summary>
     /// <param name="yamlStream">The YAML stream to convert.</param>
+    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
     /// <returns>An array of XmlDocument objects representing each document in the YAML stream.</returns>
-    public static System.Xml.XmlDocument[] ToXmlDocumentArray(this YamlStream yamlStream)
+    public static XmlDocument[] ToXmlDocumentArray(this YamlStream yamlStream, string rootElementName = "root")
     {
         ArgumentNullException.ThrowIfNull(yamlStream);
 
-        var result = new System.Xml.XmlDocument[yamlStream.Documents.Count];
+        var result = new XmlDocument[yamlStream.Documents.Count];
 
         for (int i = 0; i < yamlStream.Documents.Count; i++)
         {
-            var xmlDoc = new System.Xml.XmlDocument();
-            var rootElement = xmlDoc.CreateElement("root");
-            xmlDoc.AppendChild(rootElement);
+            var xmlDocument = new XmlDocument();
+            var rootElement = xmlDocument.CreateElement(rootElementName);
+            xmlDocument.AppendChild(rootElement);
 
-            ConvertYamlNodeToXml(yamlStream.Documents[i].RootNode, rootElement, xmlDoc);
-            result[i] = xmlDoc;
+            ConvertYamlNodeToXml(xmlDocument, rootElement, rootElementName, yamlStream.Documents[i].RootNode);
+            result[i] = xmlDocument;
         }
 
         return result;
@@ -198,9 +193,10 @@ public static class YamlConverter
     /// Converts a YAML stream to a single XmlDocument.
     /// </summary>
     /// <param name="yamlStream">The YAML stream to convert.</param>
+    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
     /// <returns>An XmlDocument representing the first document in the YAML stream.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
-    public static System.Xml.XmlDocument ToXmlDocument(this YamlStream yamlStream)
+    public static XmlDocument ToXmlDocument(this YamlStream yamlStream, string rootElementName = "root")
     {
         ArgumentNullException.ThrowIfNull(yamlStream);
 
@@ -209,11 +205,11 @@ public static class YamlConverter
             throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToXmlDocumentArray)} to convert all documents.");
         }
 
-        var documents = ToXmlDocumentArray(yamlStream);
-        return documents.Length > 0 ? documents[0] : new System.Xml.XmlDocument();
+        var documents = ToXmlDocumentArray(yamlStream, rootElementName);
+        return documents.Length > 0 ? documents[0] : new XmlDocument();
     }
 
-    private static void ConvertYamlNodeToXml(YamlNode? yamlNode, System.Xml.XmlElement parentElement, System.Xml.XmlDocument xmlDoc)
+    private static void ConvertYamlNodeToXml(XmlDocument xmlDocument, XmlElement parentElement, string elementName, YamlNode? yamlNode)
     {
         if (yamlNode == null) return;
 
@@ -226,9 +222,9 @@ public static class YamlConverter
             case YamlSequenceNode sequenceNode:
                 foreach (var childNode in sequenceNode.Children)
                 {
-                    var itemElement = xmlDoc.CreateElement("item");
+                    var itemElement = xmlDocument.CreateElement(elementName);
                     parentElement.AppendChild(itemElement);
-                    ConvertYamlNodeToXml(childNode, itemElement, xmlDoc);
+                    ConvertYamlNodeToXml(xmlDocument, itemElement, elementName, childNode);
                 }
                 break;
 
@@ -237,10 +233,17 @@ public static class YamlConverter
                 {
                     if (entry.Key is YamlScalarNode keyNode)
                     {
-                        var elementName = SanitizeXmlElementName(keyNode.Value ?? "element");
-                        var childElement = xmlDoc.CreateElement(elementName);
-                        parentElement.AppendChild(childElement);
-                        ConvertYamlNodeToXml(entry.Value, childElement, xmlDoc);
+                        var validXmlName = XmlConverter.MakeValidXmlName(keyNode.Value ?? "element");
+                        if (entry.Value is YamlSequenceNode)
+                        {
+                            ConvertYamlNodeToXml(xmlDocument, parentElement, validXmlName, entry.Value);
+                        }
+                        else
+                        {
+                            var childElement = xmlDocument.CreateElement(validXmlName);
+                            parentElement.AppendChild(childElement);
+                            ConvertYamlNodeToXml(xmlDocument, childElement, validXmlName, entry.Value);
+                        }
                     }
                 }
                 break;
@@ -248,24 +251,89 @@ public static class YamlConverter
     }
 
     /// <summary>
-    /// Sanitizes a string to be used as an XML element name.
+    /// Converts a YAML stream to an array of XDocument objects.
     /// </summary>
-    /// <param name="name">The string to sanitize.</param>
-    /// <returns>A valid XML element name.</returns>
-    private static string SanitizeXmlElementName(string name)
+    /// <param name="yamlStream">The YAML stream to convert.</param>
+    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <returns>An array of XDocument objects representing each document in the YAML stream.</returns>
+    public static XDocument[] ToXDocumentArray(this YamlStream yamlStream, string rootElementName = "root")
     {
-        // XML element names must start with a letter or underscore and cannot contain spaces or special characters
-        if (string.IsNullOrEmpty(name))
-            return "element";
+        ArgumentNullException.ThrowIfNull(yamlStream);
 
-        // Replace invalid characters with underscores
-        var sanitized = Regex.Replace(name, @"[^\w\-\.]", "_");
+        var result = new XDocument[yamlStream.Documents.Count];
 
-        // Ensure it starts with a letter or underscore
-        if (!char.IsLetter(sanitized[0]) && sanitized[0] != '_')
-            sanitized = "_" + sanitized;
+        for (int i = 0; i < yamlStream.Documents.Count; i++)
+        {
+            var xDocument = new XDocument();
+            var rootElement = new XElement(rootElementName);
+            xDocument.Add(rootElement);
 
-        return sanitized;
+            ConvertYamlNodeToXElement(yamlStream.Documents[i].RootNode, rootElement, rootElementName);
+            result[i] = xDocument;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Converts a YAML stream to a single XDocument.
+    /// </summary>
+    /// <param name="yamlStream">The YAML stream to convert.</param>
+    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <returns>An XDocument representing the first document in the YAML stream.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
+    public static XDocument ToXDocument(this YamlStream yamlStream, string rootElementName = "root")
+    {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
+        if (yamlStream.Documents.Count > 1)
+        {
+            throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToXDocumentArray)} to convert all documents.");
+        }
+
+        var documents = ToXDocumentArray(yamlStream);
+        return documents.Length > 0 ? documents[0] : new XDocument(new XElement(rootElementName));
+    }
+
+    private static void ConvertYamlNodeToXElement(YamlNode? yamlNode, XElement parentElement, string elementName)
+    {
+        if (yamlNode == null) return;
+
+        switch (yamlNode)
+        {
+            case YamlScalarNode scalarNode:
+                parentElement.Value = scalarNode.Value ?? string.Empty;
+                break;
+
+            case YamlSequenceNode sequenceNode:
+                foreach (var childNode in sequenceNode.Children)
+                {
+                    var itemElement = new XElement(elementName);
+                    parentElement.Add(itemElement);
+                    ConvertYamlNodeToXElement(childNode, itemElement, elementName);
+                }
+                break;
+
+            case YamlMappingNode mappingNode:
+                foreach (var entry in mappingNode.Children)
+                {
+                    if (entry.Key is YamlScalarNode keyNode)
+                    {
+                        var validXmlName = XmlConverter.MakeValidXmlName(keyNode.Value ?? "element");
+                        if (entry.Value is YamlSequenceNode)
+                        {
+                            ConvertYamlNodeToXElement(entry.Value, parentElement, validXmlName);
+                        }
+                        else
+                        {
+                            var childElement = new XElement(validXmlName);
+                            parentElement.Add(childElement);
+                            ConvertYamlNodeToXElement(entry.Value, childElement, validXmlName);
+                        }
+                    }
+                }
+                break;
+        }
     }
 
     /// <summary>
@@ -273,7 +341,7 @@ public static class YamlConverter
     /// </summary>
     /// <param name="yamlString">The YAML string to convert.</param>
     /// <returns>An XmlDocument representing the YAML data.</returns>
-    public static System.Xml.XmlDocument YamlStringToXmlDocument(string yamlString)
+    public static XmlDocument YamlStringToXmlDocument(string yamlString)
     {
         var yamlStream = new YamlStream();
         using var reader = new StringReader(yamlString);
@@ -281,5 +349,82 @@ public static class YamlConverter
         return yamlStream.ToXmlDocument();
     }
 
+    /// <summary>
+    /// Converts a YAML string to an XDocument.
+    /// </summary>
+    /// <param name="yamlString">The YAML string to convert.</param>
+    /// <returns>An XDocument representing the YAML data.</returns>
+    public static XDocument YamlStringToXDocument(string yamlString)
+    {
+        var yamlStream = new YamlStream();
+        using var reader = new StringReader(yamlString);
+        yamlStream.Load(reader);
+        return yamlStream.ToXDocument();
+    }
+
     #endregion
+
+    internal static YamlScalarNode CreateYamlScalarNode(object? value)
+    {
+        if (value is JsonValue jsonValue)
+        {
+#if NET8_0_OR_GREATER
+            if (jsonValue.TryGetValue(out bool boolValue))
+                return new YamlScalarNode(boolValue.ToString());
+            if (jsonValue.TryGetValue(out byte byteValue))
+                return new YamlScalarNode(byteValue.ToString());
+            if (jsonValue.TryGetValue(out int intValue))
+                return new YamlScalarNode(intValue.ToString());
+            if (jsonValue.TryGetValue(out long longValue))
+                return new YamlScalarNode(longValue.ToString());
+            if (jsonValue.TryGetValue(out double doubleValue))
+                return new YamlScalarNode(doubleValue.ToString());
+            if (jsonValue.TryGetValue(out decimal decimalValue))
+                return new YamlScalarNode(decimalValue.ToString());
+#endif
+            return new YamlScalarNode(jsonValue.ToString());
+        }
+        else if (value is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == JsonValueKind.True)
+                return new YamlScalarNode("true");
+            else if (jsonElement.ValueKind == JsonValueKind.False)
+                return new YamlScalarNode("false");
+            else if (jsonElement.ValueKind == JsonValueKind.Number)
+            {
+                if (jsonElement.TryGetByte(out var byteVal))
+                    return new YamlScalarNode(byteVal.ToString());
+                else if (jsonElement.TryGetInt32(out var intVal))
+                    return new YamlScalarNode(intVal.ToString());
+                else if (jsonElement.TryGetInt64(out var longVal))
+                    return new YamlScalarNode(longVal.ToString());
+                else if (jsonElement.TryGetDouble(out var doubleVal))
+                    return new YamlScalarNode(doubleVal.ToString());
+                else if (jsonElement.TryGetDecimal(out var decimalVal))
+                    return new YamlScalarNode(decimalVal.ToString());
+            }
+            else if (jsonElement.ValueKind == JsonValueKind.String)
+                return new YamlScalarNode(jsonElement.GetString());
+            else if (jsonElement.ValueKind == JsonValueKind.Null)
+                return new YamlScalarNode();
+        }
+        else if (value is string str)
+            return new YamlScalarNode(str);
+        else if (value is bool boolVal)
+            return new YamlScalarNode(boolVal.ToString());
+        else if (value is int intVal)
+            return new YamlScalarNode(intVal.ToString());
+        else if (value is long longVal)
+            return new YamlScalarNode(longVal.ToString());
+        else if (value is double doubleVal)
+            return new YamlScalarNode(doubleVal.ToString());
+        else if (value is decimal decimalVal)
+            return new YamlScalarNode(decimalVal.ToString());
+        else if (value is DateTime dateTimeVal)
+            return new YamlScalarNode(dateTimeVal.ToString("o"));
+        else if (value is DateTimeOffset dateTimeOffsetVal)
+            return new YamlScalarNode(dateTimeOffsetVal.ToString("o"));
+
+        return new YamlScalarNode();
+    }
 }

@@ -10,7 +10,7 @@ namespace MultiFormatDataConverter.UnitTest;
 public static class DataSamples
 {
     public const string XmlSample = """
-        <Root>
+        <root>
           <StringProp>Hello</StringProp>
           <IntProp>11</IntProp>
           <LongProp>123456789012345678</LongProp>
@@ -19,42 +19,34 @@ public static class DataSamples
           <BoolTrue>true</BoolTrue>
           <BoolFalse>false</BoolFalse>
           <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
-          <ArrayPropSimple>
-            <Item>Item1</Item>
-            <Item>Item2</Item>
-          </ArrayPropSimple>
-          <ArrayPropMixedTypes>
-            <Item>Item1</Item>
-            <Item>44</Item>
-            <Item>337206854775807922</Item>
-            <Item>45678.90</Item>
-            <Item>4.5678</Item>
-          </ArrayPropMixedTypes>
+          <ArrayPropSimple>Item1</ArrayPropSimple>
+          <ArrayPropSimple>Item2</ArrayPropSimple>
+          <ArrayPropMixedTypes>Item1</ArrayPropMixedTypes>
+          <ArrayPropMixedTypes>44</ArrayPropMixedTypes>
+          <ArrayPropMixedTypes>337206854775807922</ArrayPropMixedTypes>
+          <ArrayPropMixedTypes>45678.90</ArrayPropMixedTypes>
+          <ArrayPropMixedTypes>4.5678</ArrayPropMixedTypes>
           <ArrayPropComplex>
-            <Item>
-              <Item1>
-                <StringProp>Hello from simple Item1</StringProp>
-                <IntProp>22</IntProp>
-                <LongProp>234567890123456781</LongProp>
-                <DecimalProp>23456.78</DecimalProp>
-                <DoubleProp>2.3456</DoubleProp>
-                <BoolTrueProp>false</BoolTrueProp>
-                <BoolFalseProp>true</BoolFalseProp>
-                <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
-              </Item1>
-            </Item>
-            <Item>
-              <Item2>
-                <StringProp>Hello from simple Item2</StringProp>
-                <IntProp>33</IntProp>
-                <LongProp>345678901234567812</LongProp>
-                <DecimalProp>34567.89</DecimalProp>
-                <DoubleProp>3.4567</DoubleProp>
-                <BoolTrueProp>false</BoolTrueProp>
-                <BoolFalseProp>true</BoolFalseProp>
-                <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
-              </Item2>
-            </Item>
+            <Item1></Item1>
+            <StringProp>Hello sub selection array Item1</StringProp>
+            <IntProp>55</IntProp>
+            <LongProp>567890123456781234</LongProp>
+            <DecimalProp>56789.01</DecimalProp>
+            <DoubleProp>5.6789</DoubleProp>
+            <BoolTrueProp>false</BoolTrueProp>
+            <BoolFalseProp>true</BoolFalseProp>
+            <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+          </ArrayPropComplex>
+          <ArrayPropComplex>
+            <Item2></Item2>
+            <StringProp>Hello sub selection array Item2</StringProp>
+            <IntProp>66</IntProp>
+            <LongProp>678901234567812345</LongProp>
+            <DecimalProp>67890.12</DecimalProp>
+            <DoubleProp>6.7890</DoubleProp>
+            <BoolTrueProp>false</BoolTrueProp>
+            <BoolFalseProp>true</BoolFalseProp>
+            <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
           </ArrayPropComplex>
           <SubSection>
             <StringProp>Hello from sub selection</StringProp>
@@ -65,45 +57,37 @@ public static class DataSamples
             <BoolTrueProp>false</BoolTrueProp>
             <BoolFalseProp>true</BoolFalseProp>
             <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
-            <ArrayPropSimple>
-              <Item>Item1</Item>
-              <Item>Item2</Item>
-            </ArrayPropSimple>
-            <ArrayPropMixedTypes>
-              <Item>Item1</Item>
-              <Item>44</Item>
-              <Item>337206854775807922</Item>
-              <Item>45678.90</Item>
-              <Item>4.5678</Item>
-            </ArrayPropMixedTypes>
+            <ArrayPropSimple>Item1</ArrayPropSimple>
+            <ArrayPropSimple>Item2</ArrayPropSimple>
+            <ArrayPropMixedTypes>Item1</ArrayPropMixedTypes>
+            <ArrayPropMixedTypes>44</ArrayPropMixedTypes>
+            <ArrayPropMixedTypes>337206854775807922</ArrayPropMixedTypes>
+            <ArrayPropMixedTypes>45678.90</ArrayPropMixedTypes>
+            <ArrayPropMixedTypes>4.5678</ArrayPropMixedTypes>
             <ArrayPropComplex>
-              <Item>
-                <Item1>
-                  <StringProp>Hello sub selection array Item1</StringProp>
-                  <IntProp>55</IntProp>
-                  <LongProp>567890123456781234</LongProp>
-                  <DecimalProp>56789.01</DecimalProp>
-                  <DoubleProp>5.6789</DoubleProp>
-                  <BoolTrueProp>false</BoolTrueProp>
-                  <BoolFalseProp>true</BoolFalseProp>
-                  <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
-                </Item1>
-              </Item>
-              <Item>
-                <Item2>
-                  <StringProp>Hello sub selection array Item2</StringProp>
-                  <IntProp>66</IntProp>
-                  <LongProp>678901234567812345</LongProp>
-                  <DecimalProp>67890.12</DecimalProp>
-                  <DoubleProp>6.7890</DoubleProp>
-                  <BoolTrueProp>false</BoolTrueProp>
-                  <BoolFalseProp>true</BoolFalseProp>
-                  <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
-                </Item2>
-              </Item>
+              <Item1></Item1>
+              <StringProp>Hello sub selection array Item1</StringProp>
+              <IntProp>55</IntProp>
+              <LongProp>567890123456781234</LongProp>
+              <DecimalProp>56789.01</DecimalProp>
+              <DoubleProp>5.6789</DoubleProp>
+              <BoolTrueProp>false</BoolTrueProp>
+              <BoolFalseProp>true</BoolFalseProp>
+              <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            </ArrayPropComplex>
+            <ArrayPropComplex>
+              <Item2></Item2>
+              <StringProp>Hello sub selection array Item2</StringProp>
+              <IntProp>66</IntProp>
+              <LongProp>678901234567812345</LongProp>
+              <DecimalProp>67890.12</DecimalProp>
+              <DoubleProp>6.7890</DoubleProp>
+              <BoolTrueProp>false</BoolTrueProp>
+              <BoolFalseProp>true</BoolFalseProp>
+              <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
             </ArrayPropComplex>
           </SubSection>
-        </Root>
+        </root>
         """;
 
     public const string YamlSample = """

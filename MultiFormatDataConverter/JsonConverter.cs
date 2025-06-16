@@ -137,9 +137,66 @@ public static class JsonConverter
         return jsonNode.AsArray();
     }
 
-#endregion
+    #endregion
 
     #region ToYaml
+
+    /// <summary>
+    /// Converts a JSON string to a YAML string asynchronously.
+    /// </summary>
+    /// <param name="jsonString">The JSON string to convert.</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation. The task result contains the YAML string representation of the input JSON string.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="jsonString"/> is null.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if parsing the JSON string as a node fails or if the conversion to YAML string fails.
+    /// </exception>
+    public static async Task<string> ToYaml(string jsonString, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(jsonString);
+
+        using var streamJson = new MemoryStream();
+        using var writerJson = new StreamWriter(streamJson);
+
+#if NETSTANDARD
+        await writerJson.WriteAsync(jsonString);
+        await writerJson.FlushAsync();
+#else
+        await writerJson.WriteAsync(jsonString.AsMemory(), cancellationToken);
+#if NET8_0_OR_GREATER
+        await writerJson.FlushAsync(cancellationToken);
+#else
+        await writerJson.FlushAsync();
+#endif
+#endif
+
+        streamJson.Seek(0, SeekOrigin.Begin);
+
+        var jsonNode = await JsonNode.ParseAsync(streamJson, cancellationToken: cancellationToken) ?? 
+            throw new InvalidOperationException("Failed to parse JSON string as node.");
+        var yamlStream = ToYamlStream(jsonNode);
+
+        using var streamYaml = new MemoryStream();
+        using var writerYaml = new StreamWriter(streamYaml);
+        using var readerYaml = new StreamReader(streamYaml);
+        yamlStream.Save(writerYaml, false);
+
+#if NET8_0_OR_GREATER
+        await writerYaml.FlushAsync(cancellationToken);
+#else
+        await writerYaml.FlushAsync();
+#endif
+
+#if NET7_0_OR_GREATER
+        var yamlString = await readerYaml.ReadToEndAsync(cancellationToken);
+#else
+        var yamlString = await readerYaml.ReadToEndAsync();
+#endif
+
+        return yamlString;
+    }
 
     /// <summary>
     /// Converts a collection of <see cref="JsonNode"/> instances to a <see cref="YamlStream"/>.
@@ -165,11 +222,7 @@ public static class JsonConverter
             {
                 JsonValueKind.Object => CreateYamlMapping(node),
                 JsonValueKind.Array => CreateYamlSequence(node),
-                JsonValueKind.String => new YamlScalarNode(node.GetValue<string>()),
-                JsonValueKind.Number => CreateYamlNumberNode(node),
-                JsonValueKind.True => new YamlScalarNode("true"),
-                JsonValueKind.False => new YamlScalarNode("false"),
-                _ => new YamlScalarNode()
+                _ => YamlConverter.CreateYamlScalarNode(node)
             };
         }
 
@@ -191,24 +244,6 @@ public static class JsonConverter
                 sequence.Add(ConvertJsonNodeToYamlNode(item));
             }
             return sequence;
-        }
-
-        static YamlScalarNode CreateYamlNumberNode(JsonNode node)
-        {
-#if NET8_0_OR_GREATER
-            // Preserve the original number format when possible
-            if (node is JsonValue jsonValue)
-            {
-                if (jsonValue.TryGetValue(out int intValue))
-                    return new YamlScalarNode(intValue.ToString());
-                if (jsonValue.TryGetValue(out long longValue))
-                    return new YamlScalarNode(longValue.ToString());
-                if (jsonValue.TryGetValue(out decimal decimalValue))
-                    return new YamlScalarNode(decimalValue.ToString());
-            }
-#endif
-            // Fallback to double if specific type extraction isn't available
-            return new YamlScalarNode(node.GetValue<double>().ToString());
         }
 
         var yamlStream = new YamlStream();
@@ -267,11 +302,7 @@ public static class JsonConverter
             {
                 JsonValueKind.Object => CreateYamlMapping(element.Value),
                 JsonValueKind.Array => CreateYamlSequence(element.Value),
-                JsonValueKind.String => new YamlScalarNode(element.Value.GetString()),
-                JsonValueKind.Number => CreateYamlNumberNode(element.Value),
-                JsonValueKind.True => new YamlScalarNode("true"),
-                JsonValueKind.False => new YamlScalarNode("false"),
-                _ => new YamlScalarNode()
+                _ => YamlConverter.CreateYamlScalarNode(element)
             };
         }
 
@@ -293,21 +324,6 @@ public static class JsonConverter
                 sequence.Add(ConvertJsonElementToYamlNode(item));
             }
             return sequence;
-        }
-
-        static YamlScalarNode CreateYamlNumberNode(JsonElement element)
-        {
-#if NET8_0_OR_GREATER
-            // Preserve the original number format when possible
-            if (element.TryGetInt32(out int intValue))
-                return new YamlScalarNode(intValue.ToString());
-            if (element.TryGetInt64(out long longValue))
-                return new YamlScalarNode(longValue.ToString());
-            if (element.TryGetDecimal(out decimal decimalValue))
-                return new YamlScalarNode(decimalValue.ToString());
-#endif
-            // Fallback to double if specific type extraction isn't available
-            return new YamlScalarNode(element.GetDouble().ToString());
         }
 
         var yamlStream = new YamlStream();
@@ -363,13 +379,70 @@ public static class JsonConverter
     #region ToXml
 
     /// <summary>
+    /// Converts a JSON string to a YAML string asynchronously.
+    /// </summary>
+    /// <param name="jsonString">The JSON string to convert.</param>
+    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation. The task result contains the YAML string representation of the input JSON string.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="jsonString"/> is null.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if parsing the JSON string as a node fails or if the conversion to YAML string fails.
+    /// </exception>
+    public static async Task<string> ToXml(string jsonString, string rootElementName = "root", CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(jsonString);
+
+        using var streamJson = new MemoryStream();
+        using var writerJson = new StreamWriter(streamJson);
+
+#if NETSTANDARD
+        await writerJson.WriteAsync(jsonString);
+        await writerJson.FlushAsync();
+#else
+        await writerJson.WriteAsync(jsonString.AsMemory(), cancellationToken);
+#if NET8_0_OR_GREATER
+        await writerJson.FlushAsync(cancellationToken);
+#else
+        await writerJson.FlushAsync();
+#endif
+#endif
+
+        streamJson.Seek(0, SeekOrigin.Begin);
+
+        var jsonNode = await JsonNode.ParseAsync(streamJson, cancellationToken: cancellationToken) ??
+            throw new InvalidOperationException("Failed to parse JSON string as node.");
+        var xmlDocument = ToXmlDocument(jsonNode, rootElementName);
+
+        using var streamXml = new MemoryStream();
+        using var writerXml = new StreamWriter(streamXml);
+        using var readerXml = new StreamReader(streamXml);
+        xmlDocument.Save(writerXml);
+
+#if NET8_0_OR_GREATER
+        await writerXml.FlushAsync(cancellationToken);
+#else
+        await writerXml.FlushAsync();
+#endif
+
+#if NET7_0_OR_GREATER
+        var xmlString = await readerXml.ReadToEndAsync(cancellationToken);
+#else
+        var xmlString = await readerXml.ReadToEndAsync();
+#endif
+
+        return xmlString;
+    }
+
+    /// <summary>
     /// Converts a <see cref="JsonNode"/> to an <see cref="XmlDocument"/>.
     /// </summary>
     /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON node.</returns>
-    public static XmlDocument ToXmlDocument(this JsonNode jsonNode, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XmlDocument ToXmlDocument(this JsonNode jsonNode, string rootElementName = "root")
     {
         ArgumentNullException.ThrowIfNull(jsonNode);
 
@@ -378,7 +451,7 @@ public static class JsonConverter
         var root = document.CreateElement(rootElementName);
         document.AppendChild(root);
 
-        AddJsonNodeToXmlDocument(document, root, jsonNode, arrayItemElementName);
+        AddJsonNodeToXmlDocument(document, root, rootElementName, jsonNode);
 
         return document;
     }
@@ -388,13 +461,12 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON object.</returns>
-    public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root")
     {
         ArgumentNullException.ThrowIfNull(jsonObject);
 
-        return ToXmlDocument(jsonObject as JsonNode, rootElementName, arrayItemElementName);
+        return ToXmlDocument(jsonObject as JsonNode, rootElementName);
     }
 
     /// <summary>
@@ -417,7 +489,7 @@ public static class JsonConverter
         {
             var itemElement = document.CreateElement(arrayItemElementName);
             root.AppendChild(itemElement);
-            AddJsonNodeToXmlDocument(document, itemElement, item, arrayItemElementName);
+            AddJsonNodeToXmlDocument(document, itemElement, arrayItemElementName, item);
         }
 
         return document;
@@ -428,9 +500,8 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON document.</returns>
-    public static XmlDocument ToXmlDocument(this JsonDocument jsonDocument, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XmlDocument ToXmlDocument(this JsonDocument jsonDocument, string rootElementName = "root")
     {
         ArgumentNullException.ThrowIfNull(jsonDocument);
 
@@ -439,13 +510,13 @@ public static class JsonConverter
         var root = document.CreateElement(rootElementName);
         document.AppendChild(root);
 
-        AddJsonElementToXmlDocument(document, root, jsonDocument.RootElement, arrayItemElementName);
+        AddJsonElementToXmlDocument(document, root, rootElementName, jsonDocument.RootElement);
 
         return document;
     }
 
     // Helper methods for XmlDocument
-    private static void AddJsonNodeToXmlDocument(XmlDocument document, XmlElement parent, JsonNode? node, string arrayItemElementName)
+    private static void AddJsonNodeToXmlDocument(XmlDocument document, XmlElement parent, string elementName, JsonNode? node)
     {
         if (node == null)
             return;
@@ -461,54 +532,34 @@ public static class JsonConverter
             case JsonValueKind.Object:
                 foreach (var property in node.AsObject())
                 {
-                    var validXmlName = MakeValidXmlName(property.Key);
-                    var childElement = document.CreateElement(validXmlName);
-                    parent.AppendChild(childElement);
-                    AddJsonNodeToXmlDocument(document, childElement, property.Value, arrayItemElementName);
+                    var validXmlName = XmlConverter.MakeValidXmlName(property.Key);
+                    if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                    {
+                        AddJsonNodeToXmlDocument(document, parent, validXmlName, property.Value);
+                    }
+                    else
+                    {
+                        var childElement = document.CreateElement(validXmlName);
+                        parent.AppendChild(childElement);
+                        AddJsonNodeToXmlDocument(document, childElement, validXmlName, property.Value);
+                    }
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in node.AsArray())
                 {
-                    var childElement = document.CreateElement(arrayItemElementName);
+                    var childElement = document.CreateElement(elementName);
                     parent.AppendChild(childElement);
-                    AddJsonNodeToXmlDocument(document, childElement, item, arrayItemElementName);
+                    AddJsonNodeToXmlDocument(document, childElement, elementName, item);
                 }
                 break;
 
             case JsonValueKind.String:
-                parent.InnerText = node.GetValue<string>() ?? string.Empty;
-                break;
-
             case JsonValueKind.Number:
-#if NET8_0_OR_GREATER
-                if (node is JsonValue jsonValue)
-                {
-                    if (jsonValue.TryGetValue(out int intValue))
-                        parent.InnerText = intValue.ToString();
-                    else if (jsonValue.TryGetValue(out long longValue))
-                        parent.InnerText = longValue.ToString();
-                    else if (jsonValue.TryGetValue(out decimal decimalValue))
-                        parent.InnerText = decimalValue.ToString();
-                    else
-                        parent.InnerText = node.GetValue<double>().ToString();
-                }
-                else
-                {
-                    parent.InnerText = node.GetValue<double>().ToString();
-                }
-#else
-                parent.InnerText = node.GetValue<double>().ToString();
-#endif
-                break;
-
             case JsonValueKind.True:
-                parent.InnerText = "true";
-                break;
-
             case JsonValueKind.False:
-                parent.InnerText = "false";
+                XmlConverter.CreateXmlInnerText(parent, node);
                 break;
 
             case JsonValueKind.Null:
@@ -517,54 +568,41 @@ public static class JsonConverter
         }
     }
 
-    private static void AddJsonElementToXmlDocument(XmlDocument document, XmlElement parent, JsonElement element, string arrayItemElementName)
+    private static void AddJsonElementToXmlDocument(XmlDocument document, XmlElement parent, string elementName, JsonElement element)
     {
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
                 foreach (var property in element.EnumerateObject())
                 {
-                    var validXmlName = MakeValidXmlName(property.Name);
-                    var childElement = document.CreateElement(validXmlName);
-                    parent.AppendChild(childElement);
-                    AddJsonElementToXmlDocument(document, childElement, property.Value, arrayItemElementName);
+                    var validXmlName = XmlConverter.MakeValidXmlName(property.Name);
+                    if (property.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        AddJsonElementToXmlDocument(document, parent, validXmlName, property.Value);
+                    }
+                    else
+                    {
+                        var childElement = document.CreateElement(validXmlName);
+                        parent.AppendChild(childElement);
+                        AddJsonElementToXmlDocument(document, childElement, validXmlName, property.Value);
+                    }
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in element.EnumerateArray())
                 {
-                    var childElement = document.CreateElement(arrayItemElementName);
+                    var childElement = document.CreateElement(elementName);
                     parent.AppendChild(childElement);
-                    AddJsonElementToXmlDocument(document, childElement, item, arrayItemElementName);
+                    AddJsonElementToXmlDocument(document, childElement, elementName, item);
                 }
                 break;
 
             case JsonValueKind.String:
-                parent.InnerText = element.GetString() ?? string.Empty;
-                break;
-
             case JsonValueKind.Number:
-#if NET8_0_OR_GREATER
-                if (element.TryGetInt32(out int intValue))
-                    parent.InnerText = intValue.ToString();
-                else if (element.TryGetInt64(out long longValue))
-                    parent.InnerText = longValue.ToString();
-                else if (element.TryGetDecimal(out decimal decimalValue))
-                    parent.InnerText = decimalValue.ToString();
-                else
-                    parent.InnerText = element.GetDouble().ToString();
-#else
-                parent.InnerText = element.GetDouble().ToString();
-#endif
-                break;
-
             case JsonValueKind.True:
-                parent.InnerText = "true";
-                break;
-
             case JsonValueKind.False:
-                parent.InnerText = "false";
+                XmlConverter.CreateXmlInnerText(parent, element);
                 break;
 
             case JsonValueKind.Null:
@@ -578,15 +616,14 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON node.</returns>
-    public static XDocument ToXDocument(this JsonNode jsonNode, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XDocument ToXDocument(this JsonNode jsonNode, string rootElementName = "root")
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
         document.Add(root);
 
-        AddJsonNodeToXml(root, jsonNode, arrayItemElementName);
+        AddJsonNodeToXml(root, jsonNode, rootElementName);
 
         return document;
     }
@@ -596,11 +633,10 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON object.</returns>
-    public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root")
     {
-        return ToXDocument(jsonObject as JsonNode, rootElementName, arrayItemElementName);
+        return ToXDocument(jsonObject as JsonNode, rootElementName);
     }
 
     /// <summary>
@@ -631,49 +667,20 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON document.</returns>
-    public static XDocument ToXDocument(this JsonDocument jsonDocument, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XDocument ToXDocument(this JsonDocument jsonDocument, string rootElementName = "root")
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
         document.Add(root);
 
-        AddJsonElementToXml(root, jsonDocument.RootElement, arrayItemElementName);
+        AddJsonElementToXml(root, jsonDocument.RootElement, rootElementName);
 
         return document;
     }
 
-    /// <summary>
-    /// Converts a <see cref="JsonNode"/> to an <see cref="XElement"/>.
-    /// </summary>
-    /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
-    /// <param name="elementName">The name of the XML element. Defaults to "element".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
-    /// <returns>An <see cref="XElement"/> representing the converted JSON node.</returns>
-    public static XElement ToXElement(this JsonNode jsonNode, string elementName = "element", string arrayItemElementName = "item")
-    {
-        var element = new XElement(elementName);
-        AddJsonNodeToXml(element, jsonNode, arrayItemElementName);
-        return element;
-    }
-
-    /// <summary>
-    /// Converts a <see cref="JsonDocument"/> to an <see cref="XElement"/>.
-    /// </summary>
-    /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
-    /// <param name="elementName">The name of the XML element. Defaults to "element".</param>
-    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
-    /// <returns>An <see cref="XElement"/> representing the converted JSON document.</returns>
-    public static XElement ToXElement(this JsonDocument jsonDocument, string elementName = "element", string arrayItemElementName = "item")
-    {
-        var element = new XElement(elementName);
-        AddJsonElementToXml(element, jsonDocument.RootElement, arrayItemElementName);
-        return element;
-    }
-
     // Helper methods
-    private static void AddJsonNodeToXml(XElement parent, JsonNode? node, string arrayItemElementName)
+    private static void AddJsonNodeToXml(XElement parent, JsonNode? node, string elementName)
     {
         if (node == null)
             return;
@@ -689,54 +696,34 @@ public static class JsonConverter
             case JsonValueKind.Object:
                 foreach (var property in node.AsObject())
                 {
-                    var validXmlName = MakeValidXmlName(property.Key);
-                    var childElement = new XElement(validXmlName);
-                    parent.Add(childElement);
-                    AddJsonNodeToXml(childElement, property.Value, arrayItemElementName);
+                    var validXmlName = XmlConverter.MakeValidXmlName(property.Key);
+                    if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                    {
+                        AddJsonNodeToXml(parent, property.Value, validXmlName);
+                    }
+                    else
+                    {
+                        var childElement = new XElement(validXmlName);
+                        parent.Add(childElement);
+                        AddJsonNodeToXml(childElement, property.Value, validXmlName);
+                    }
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in node.AsArray())
                 {
-                    var childElement = new XElement(arrayItemElementName);
+                    var childElement = new XElement(elementName);
                     parent.Add(childElement);
-                    AddJsonNodeToXml(childElement, item, arrayItemElementName);
+                    AddJsonNodeToXml(childElement, item, elementName);
                 }
                 break;
 
             case JsonValueKind.String:
-                parent.Value = node.GetValue<string>() ?? string.Empty;
-                break;
-
             case JsonValueKind.Number:
-#if NET8_0_OR_GREATER
-                if (node is JsonValue jsonValue)
-                {
-                    if (jsonValue.TryGetValue(out int intValue))
-                        parent.Value = intValue.ToString();
-                    else if (jsonValue.TryGetValue(out long longValue))
-                        parent.Value = longValue.ToString();
-                    else if (jsonValue.TryGetValue(out decimal decimalValue))
-                        parent.Value = decimalValue.ToString();
-                    else
-                        parent.Value = node.GetValue<double>().ToString();
-                }
-                else
-                {
-                    parent.Value = node.GetValue<double>().ToString();
-                }
-#else
-                parent.Value = node.GetValue<double>().ToString();
-#endif
-                break;
-
             case JsonValueKind.True:
-                parent.Value = "true";
-                break;
-
             case JsonValueKind.False:
-                parent.Value = "false";
+                XmlConverter.CreateXInnerText(parent, node);
                 break;
 
             case JsonValueKind.Null:
@@ -745,54 +732,41 @@ public static class JsonConverter
         }
     }
 
-    private static void AddJsonElementToXml(XElement parent, JsonElement element, string arrayItemElementName)
+    private static void AddJsonElementToXml(XElement parent, JsonElement element, string elementName)
     {
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
                 foreach (var property in element.EnumerateObject())
                 {
-                    var validXmlName = MakeValidXmlName(property.Name);
-                    var childElement = new XElement(validXmlName);
-                    parent.Add(childElement);
-                    AddJsonElementToXml(childElement, property.Value, arrayItemElementName);
+                    var validXmlName = XmlConverter.MakeValidXmlName(property.Name);
+                    if (property.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        AddJsonElementToXml(parent, property.Value, validXmlName);
+                    }
+                    else
+                    {
+                        var childElement = new XElement(validXmlName);
+                        parent.Add(childElement);
+                        AddJsonElementToXml(childElement, property.Value, validXmlName);
+                    }
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in element.EnumerateArray())
                 {
-                    var childElement = new XElement(arrayItemElementName);
+                    var childElement = new XElement(elementName);
                     parent.Add(childElement);
-                    AddJsonElementToXml(childElement, item, arrayItemElementName);
+                    AddJsonElementToXml(childElement, item, elementName);
                 }
                 break;
 
             case JsonValueKind.String:
-                parent.Value = element.GetString() ?? string.Empty;
-                break;
-
             case JsonValueKind.Number:
-#if NET8_0_OR_GREATER
-                if (element.TryGetInt32(out int intValue))
-                    parent.Value = intValue.ToString();
-                else if (element.TryGetInt64(out long longValue))
-                    parent.Value = longValue.ToString();
-                else if (element.TryGetDecimal(out decimal decimalValue))
-                    parent.Value = decimalValue.ToString();
-                else
-                    parent.Value = element.GetDouble().ToString();
-#else
-                parent.Value = element.GetDouble().ToString();
-#endif
-                break;
-
             case JsonValueKind.True:
-                parent.Value = "true";
-                break;
-
             case JsonValueKind.False:
-                parent.Value = "false";
+                XmlConverter.CreateXInnerText(parent, element);
                 break;
 
             case JsonValueKind.Null:
@@ -801,47 +775,49 @@ public static class JsonConverter
         }
     }
 
-    private static string MakeValidXmlName(string name)
-    {
-        // XML element names cannot start with a number, contain spaces or special characters
-        if (string.IsNullOrEmpty(name))
-            return "element";
+    #endregion
 
-        // Replace invalid characters with underscore
-        var validChars = new char[name.Length];
-        for (int i = 0; i < name.Length; i++)
+    internal static JsonValue? CreateJsonValue(object? value)
+    {
+        static JsonValue? CreateFromString(string? valueStr)
         {
-            char c = name[i];
-            validChars[i] = XmlConvert.IsXmlChar(c) ? c : '_';
+            if (bool.TryParse(valueStr, out var boolVal))
+                return JsonValue.Create(boolVal);
+            if (byte.TryParse(valueStr, out var byteVal))
+                return JsonValue.Create(byteVal);
+            if (int.TryParse(valueStr, out var intVal))
+                return JsonValue.Create(intVal);
+            if (long.TryParse(valueStr, out var longVal))
+                return JsonValue.Create(longVal);
+            if (double.TryParse(valueStr, out var doubleVal))
+                return JsonValue.Create(doubleVal);
+            if (decimal.TryParse(valueStr, out var decimalVal))
+                return JsonValue.Create(decimalVal);
+            if (DateTime.TryParse(valueStr, out var dateTimeVal))
+                return JsonValue.Create(dateTimeVal);
+            if (DateTimeOffset.TryParse(valueStr, out var dateTimeOffsetVal))
+                return JsonValue.Create(dateTimeOffsetVal);
+            return JsonValue.Create(valueStr);
         }
 
-        string result = new(validChars);
+        if (value is YamlScalarNode yamlScalarNode)
+            return CreateFromString(yamlScalarNode.Value);
 
-        // If the name starts with a number or invalid starting character, prefix it
-        if (result.Length > 0 && !XmlConvert.IsStartNCNameChar(result[0]))
-            result = "x_" + result;
-
-        return result == string.Empty ? "element" : result;
-    }
-
-    internal static JsonValue? CreateJsonValue(string? value)
-    {
-        if (bool.TryParse(value, out var boolVal))
+        if (value is bool boolVal)
             return JsonValue.Create(boolVal);
-        if (int.TryParse(value, out var intVal))
+        else if (value is int intVal)
             return JsonValue.Create(intVal);
-        if (long.TryParse(value, out var longVal))
+        else if (value is long longVal)
             return JsonValue.Create(longVal);
-        if (double.TryParse(value, out var doubleVal))
+        else if (value is double doubleVal)
             return JsonValue.Create(doubleVal);
-        if (decimal.TryParse(value, out var decimalVal))
+        else if (value is decimal decimalVal)
             return JsonValue.Create(decimalVal);
-        if (DateTime.TryParse(value, out var dateTimeVal))
+        else if (value is DateTime dateTimeVal)
             return JsonValue.Create(dateTimeVal);
-        if (DateTimeOffset.TryParse(value, out var dateTimeOffsetVal))
+        else if (value is DateTimeOffset dateTimeOffsetVal)
             return JsonValue.Create(dateTimeOffsetVal);
-        return JsonValue.Create(value);
-    }
 
-    #endregion
+        return CreateFromString(value?.ToString());
+    }
 }

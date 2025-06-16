@@ -106,7 +106,6 @@ public class JsonUnitTest
         var expectedJsonNode = JsonSerializer.Deserialize<JsonNode>(jsonString);
         var expectedJsonArray = new JsonArray(expectedJsonObject?.DeepClone(), expectedJsonObject?.DeepClone());
 
-
         // Act
         var converted_JsonDocument_ToXmlDocument = expectedJsonDocument?.ToXmlDocument()!;
         var converted_JsonObject_ToXmlDocument = expectedJsonObject?.ToXmlDocument()!;
@@ -152,11 +151,11 @@ public class JsonUnitTest
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonDocument_ToXmlDocument, true);
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonObject_ToXmlDocument, true);
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonNode_ToXmlDocument, true);
-        JsonValidator.AreEqual(expectedJsonArray, roundTrip_JsonArray_ToXmlDocument, true);
+        JsonValidator.AreEqual(expectedJsonArray, roundTrip_JsonArray_ToXmlDocument[0], true);
 
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonDocument_ToXDocument, true);
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonObject_ToXDocument, true);
         JsonValidator.AreEqual(expectedJsonNode, roundTrip_JsonNode_ToXDocument, true);
-        JsonValidator.AreEqual(expectedJsonArray, roundTrip_JsonArray_ToXDocument, true);
+        JsonValidator.AreEqual(expectedJsonArray, roundTrip_JsonArray_ToXDocument[0], true);
     }
 }

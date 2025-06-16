@@ -129,7 +129,7 @@ public static class XmlConverter
 
         if (childElements.Count == 0)
         {
-            throw new InvalidOperationException("The XML document cannot be converted to a JSON array because it does not contain a collection of elements.");
+            return new JsonArray();
         }
 
         var jsonArray = new JsonArray();
@@ -232,21 +232,6 @@ public static class XmlConverter
             .GroupBy(e => e.Name)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // If there is only one group and it contains a single element, treat it as a JSON array
-        if (childElements.Count == 1 && 
-            childElements.First().Value is List<XmlElement> firstValueElements &&
-            firstValueElements.FirstOrDefault() is XmlElement firstValueElement &&
-            firstValueElement.Name is string firstValueElementName &&
-            firstValueElements.All(i => i.Name.Equals(firstValueElementName)))
-        {
-            var array = new JsonArray();
-            foreach (var item in childElements.First().Value)
-            {
-                array.Add(ConvertElementToJsonNode(item));
-            }
-            return array;
-        }
-
         bool hasText = false;
         string textContent = string.Empty;
 
@@ -314,6 +299,58 @@ public static class XmlConverter
     #region ToYaml
 
     /// <summary>
+    /// Converts an array of <see cref="XmlDocument"/> to a <see cref="YamlStream"/>.
+    /// </summary>
+    /// <param name="xmlDocuments">The array of <see cref="XmlDocument"/> to convert. Cannot be null.</param>
+    /// <returns>
+    /// A <see cref="YamlStream"/> representation of the input <see cref="XmlDocument"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when the <paramref name="xmlDocuments"/> parameter is null.</exception>
+    public static YamlStream ToYamlStream(this IEnumerable<XmlDocument> xmlDocuments)
+    {
+        ArgumentNullException.ThrowIfNull(xmlDocuments);
+
+        var yamlStream = new YamlStream();
+        foreach (var xmlDocument in xmlDocuments)
+        {
+            if (xmlDocument == null)
+                continue;
+
+            var jsonNode = xmlDocument.ToJsonNode();
+            var root = ConvertJsonNodeToYamlNode(jsonNode);
+            var doc = new YamlDocument(root);
+            yamlStream.Documents.Add(doc);
+        }
+        return yamlStream;
+    }
+
+    /// <summary>
+    /// Converts an array of <see cref="XDocument"/> to a <see cref="YamlStream"/>.
+    /// </summary>
+    /// <param name="xDocuments">The array of <see cref="XDocument"/> to convert. Cannot be null.</param>
+    /// <returns>
+    /// A <see cref="YamlStream"/> representation of the input <see cref="XDocument"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when the <paramref name="xDocuments"/> parameter is null.</exception>
+    public static YamlStream ToYamlStream(this IEnumerable<XDocument> xDocuments)
+    {
+        ArgumentNullException.ThrowIfNull(xDocuments);
+
+        var yamlStream = new YamlStream();
+        foreach (var xDocument in xDocuments)
+        {
+            if (xDocument == null)
+                continue;
+
+            var jsonNode = xDocument.ToJsonNode();
+            var root = ConvertJsonNodeToYamlNode(jsonNode);
+            var doc = new YamlDocument(root);
+            yamlStream.Documents.Add(doc);
+        }
+        return yamlStream;
+    }
+
+    /// <summary>
     /// Converts an <see cref="XmlDocument"/> to a <see cref="YamlStream"/>.
     /// </summary>
     /// <param name="xmlDocument">The <see cref="XmlDocument"/> to convert. Cannot be null.</param>
@@ -325,12 +362,7 @@ public static class XmlConverter
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
 
-        var jsonNode = xmlDocument.ToJsonNode();
-        var yamlStream = new YamlStream();
-        var root = ConvertJsonNodeToYamlNode(jsonNode);
-        var doc = new YamlDocument(root);
-        yamlStream.Documents.Add(doc);
-        return yamlStream;
+        return new XmlDocument[] { xmlDocument }.ToYamlStream();
     }
 
     /// <summary>
@@ -345,7 +377,7 @@ public static class XmlConverter
     {
         ArgumentNullException.ThrowIfNull(xDocument);
 
-        return xDocument.ToXmlDocument().ToYamlStream();
+        return new XDocument[] { xDocument }.ToYamlStream();
     }
 
     private static YamlNode ConvertJsonNodeToYamlNode(JsonNode? node)
@@ -383,4 +415,117 @@ public static class XmlConverter
     }
 
     #endregion
+
+    static void CreateInnerTextString(Action<string> onCreate, string? valueStr)
+    {
+        if (bool.TryParse(valueStr, out var boolVal))
+        {
+            onCreate(boolVal.ToString().ToLowerInvariant());
+            return;
+        }
+        if (byte.TryParse(valueStr, out var byteVal))
+        {
+            onCreate(byteVal.ToString());
+            return;
+        }
+        if (int.TryParse(valueStr, out var intVal))
+        {
+            onCreate(intVal.ToString());
+            return;
+        }
+        if (long.TryParse(valueStr, out var longVal))
+        {
+            onCreate(longVal.ToString());
+            return;
+        }
+        if (double.TryParse(valueStr, out var doubleVal))
+        {
+            onCreate(doubleVal.ToString("G", System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
+        if (decimal.TryParse(valueStr, out var decimalVal))
+        {
+            onCreate(decimalVal.ToString("G", System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
+        if (DateTime.TryParse(valueStr, out var dateTimeVal))
+        {
+            onCreate(dateTimeVal.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
+        if (DateTimeOffset.TryParse(valueStr, out var dateTimeOffsetVal))
+        {
+            onCreate(dateTimeOffsetVal.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
+        if (valueStr != null)
+        {
+            onCreate(valueStr);
+        }
+    }
+
+    internal static void CreateXmlInnerText(XmlElement parent, object? value)
+    {
+        if (value is YamlScalarNode yamlScalarNode)
+            CreateInnerTextString(s => parent.InnerText = s, yamlScalarNode.Value);
+        else if (value is JsonNode jsonNode)
+            CreateInnerTextString(s => parent.InnerText = s, jsonNode.ToString());
+        else if(value is JsonElement jsonElement)
+            CreateInnerTextString(s => parent.InnerText = s, jsonElement.ToString());
+        else
+            CreateInnerTextString(s => parent.InnerText = s, value?.ToString());
+    }
+
+    internal static void CreateXInnerText(XElement parent, object? value)
+    {
+        if (value is YamlScalarNode yamlScalarNode)
+            CreateInnerTextString(s => parent.Value = s, yamlScalarNode.Value);
+        else if(value is JsonNode jsonNode)
+            CreateInnerTextString(s => parent.Value = s, jsonNode.ToString());
+        else if(value is JsonElement jsonElement)
+            CreateInnerTextString(s => parent.Value = s, jsonElement.ToString());
+        else
+            CreateInnerTextString(s => parent.Value = s, value?.ToString());
+    }
+
+    internal static string MakeValidXmlName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return "unnamed";
+
+        // Remove invalid characters and ensure the name starts with a valid character
+        // XML names must start with a letter or underscore, and can contain letters, digits, hyphens, underscores, and periods
+        // See: https://www.w3.org/TR/xml/#NT-Name
+
+        // Replace invalid characters with '_'
+        var validName = new System.Text.StringBuilder();
+        int i = 0;
+        foreach (char c in name)
+        {
+            if ((i == 0 && (char.IsLetter(c) || c == '_')) ||
+                (i > 0 && (char.IsLetterOrDigit(c) || c == '-' || c == '_' || c == '.')))
+            {
+                validName.Append(c);
+            }
+            else
+            {
+                validName.Append('_');
+            }
+            i++;
+        }
+
+        // If the first character is not valid, prefix with '_'
+        if (validName.Length == 0 || !(char.IsLetter(validName[0]) || validName[0] == '_'))
+        {
+            validName.Insert(0, '_');
+        }
+
+        // XML names cannot start with "xml" (case-insensitive)
+        if (validName.ToString().StartsWith("xml", StringComparison.OrdinalIgnoreCase))
+        {
+            validName.Insert(0, '_');
+        }
+
+        return validName.ToString();
+    }
 }

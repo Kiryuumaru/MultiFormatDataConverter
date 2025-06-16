@@ -36,7 +36,7 @@ public class XmlUnitTest
         Assert.NotNull(roundTrip_XDocument_ToXmlDocument);
 
         // Compare XML by string representation (ignoring whitespace)
-        string NormalizeXml(string xml)
+        static string NormalizeXml(string xml)
         {
             var doc = new XmlDocument();
             doc.LoadXml(xml);
@@ -110,16 +110,16 @@ public class XmlUnitTest
     {
         // Arrange
         var xmlString = DataSamples.XmlSample;
-        var xmlDoc = new XmlDocument();
-        xmlDoc.LoadXml(xmlString);
-        var xDoc = XDocument.Parse(xmlString);
+        var expectedXmlDoccument = new XmlDocument();
+        expectedXmlDoccument.LoadXml(xmlString);
+        var expectedXDocument = XDocument.Parse(xmlString);
 
         // Act
-        var converted_XmlDocument_ToYaml = xmlDoc.ToYamlStream();
-        var converted_XDocument_ToYaml = xDoc.ToYamlStream();
+        var converted_XmlDocument_ToYaml = expectedXmlDoccument.ToYamlStream();
+        var converted_XDocument_ToYaml = expectedXDocument.ToYamlStream();
 
-        var roundTrip_XmlDocument_ToYaml = converted_XmlDocument_ToYaml?.ToJsonNodeArray();
-        var roundTrip_XDocument_ToYaml = converted_XDocument_ToYaml?.ToJsonNodeArray();
+        var roundTrip_XmlDocument_ToYaml = converted_XmlDocument_ToYaml?.ToXmlDocument();
+        var roundTrip_XDocument_ToYaml = converted_XDocument_ToYaml?.ToXDocument();
 
         // Assert
         Assert.NotNull(converted_XmlDocument_ToYaml);
@@ -128,12 +128,7 @@ public class XmlUnitTest
         Assert.NotNull(roundTrip_XmlDocument_ToYaml);
         Assert.NotNull(roundTrip_XDocument_ToYaml);
 
-        Assert.Single(roundTrip_XmlDocument_ToYaml!);
-        Assert.Single(roundTrip_XDocument_ToYaml!);
-
-        var expectedJsonNode = xmlDoc.ToJsonNode();
-
-        JsonValidator.AreEqual(expectedJsonNode, roundTrip_XmlDocument_ToYaml![0], true);
-        JsonValidator.AreEqual(expectedJsonNode, roundTrip_XDocument_ToYaml![0], true);
+        XmlValidator.AreEqual(expectedXmlDoccument, roundTrip_XmlDocument_ToYaml, true);
+        XmlValidator.AreEqual(expectedXDocument, roundTrip_XDocument_ToYaml, true);
     }
 }

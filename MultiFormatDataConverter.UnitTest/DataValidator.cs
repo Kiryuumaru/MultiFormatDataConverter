@@ -460,7 +460,7 @@ public static class XmlValidator
         {
             if (nullIsEmpty && (string.IsNullOrEmpty(val1) && string.IsNullOrEmpty(val2)))
                 return;
-            if (val1 != val2)
+            if (FormatValue(val1) != FormatValue(val2))
                 throw new XmlComparisonException($"XML {path}: Value mismatch. Expected '{val1}', Actual '{val2}'");
         }
 
@@ -497,5 +497,38 @@ public static class XmlValidator
         if (elem.HasChildNodes && !elem.ChildNodes.OfType<System.Xml.XmlElement>().Any() && elem.Attributes.Count == 0)
             return true;
         return false;
+    }
+
+    private static string FormatValue(object? value)
+    {
+        var strValue = value?.ToString() ?? "null";
+
+        if (strValue.Equals("true", StringComparison.InvariantCultureIgnoreCase) ||
+            strValue.Equals("yes", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return "true";
+        }
+        if (strValue.Equals("false", StringComparison.InvariantCultureIgnoreCase) ||
+            strValue.Equals("no", StringComparison.InvariantCultureIgnoreCase))
+        {
+            return "false";
+        }
+
+        if (bool.TryParse(strValue, out var boolValue))
+            return boolValue.ToString();
+
+        if (int.TryParse(strValue, out var intValue))
+            return intValue.ToString();
+
+        if (long.TryParse(strValue, out var longValue))
+            return longValue.ToString();
+
+        if (double.TryParse(strValue, out var doubleValue))
+            return doubleValue.ToString("G", System.Globalization.CultureInfo.InvariantCulture);
+
+        if (decimal.TryParse(strValue, out var decimalValue))
+            return decimalValue.ToString("G", System.Globalization.CultureInfo.InvariantCulture);
+
+        return strValue;
     }
 }

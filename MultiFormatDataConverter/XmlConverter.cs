@@ -227,18 +227,25 @@ public static class XmlConverter
 
     private static JsonNode? ConvertElementToJsonNode(XmlElement element)
     {
-        var jsonObject = new JsonObject();
-
-        // Add attributes
-        foreach (XmlAttribute attr in element.Attributes)
-        {
-            jsonObject.Add($"@{attr.Name}", JsonConverter.CreateJsonValue(attr.Value));
-        }
-
         // Process child nodes
         var childElements = element.ChildNodes.OfType<XmlElement>()
             .GroupBy(e => e.Name)
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        // If there is only one group and it contains a single element, treat it as a JSON array
+        if (childElements.Count == 1 && 
+            childElements.First().Value is List<XmlElement> firstValueElements &&
+            firstValueElements.FirstOrDefault() is XmlElement firstValueElement &&
+            firstValueElement.Name is string firstValueElementName &&
+            firstValueElements.All(i => i.Name.Equals(firstValueElementName)))
+        {
+            var array = new JsonArray();
+            foreach (var item in childElements.First().Value)
+            {
+                array.Add(ConvertElementToJsonNode(item));
+            }
+            return array;
+        }
 
         bool hasText = false;
         string textContent = string.Empty;
@@ -257,10 +264,18 @@ public static class XmlConverter
             }
         }
 
+        var jsonObject = new JsonObject();
+
         // Add text content if present, retaining specific types
         if (hasText && !string.IsNullOrWhiteSpace(textContent))
         {
             jsonObject.Add("#text", JsonConverter.CreateJsonValue(textContent));
+        }
+
+        // Add attributes
+        foreach (XmlAttribute attr in element.Attributes)
+        {
+            jsonObject.Add($"@{attr.Name}", JsonConverter.CreateJsonValue(attr.Value));
         }
 
         // Add child elements

@@ -367,8 +367,9 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON node.</returns>
-    public static XmlDocument ToXmlDocument(this JsonNode jsonNode, string rootElementName = "root")
+    public static XmlDocument ToXmlDocument(this JsonNode jsonNode, string rootElementName = "root", string arrayItemElementName = "item")
     {
         ArgumentNullException.ThrowIfNull(jsonNode);
 
@@ -377,7 +378,7 @@ public static class JsonConverter
         var root = document.CreateElement(rootElementName);
         document.AppendChild(root);
 
-        AddJsonNodeToXmlDocument(document, root, jsonNode);
+        AddJsonNodeToXmlDocument(document, root, jsonNode, arrayItemElementName);
 
         return document;
     }
@@ -387,12 +388,13 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON object.</returns>
-    public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root")
+    public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root", string arrayItemElementName = "item")
     {
         ArgumentNullException.ThrowIfNull(jsonObject);
 
-        return ToXmlDocument(jsonObject as JsonNode, rootElementName);
+        return ToXmlDocument(jsonObject as JsonNode, rootElementName, arrayItemElementName);
     }
 
     /// <summary>
@@ -400,9 +402,9 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonArray">The <see cref="JsonArray"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="itemElementName">The name of individual array item elements. Defaults to "item".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON array.</returns>
-    public static XmlDocument ToXmlDocument(this JsonArray jsonArray, string rootElementName = "root", string itemElementName = "item")
+    public static XmlDocument ToXmlDocument(this JsonArray jsonArray, string rootElementName = "root", string arrayItemElementName = "item")
     {
         ArgumentNullException.ThrowIfNull(jsonArray);
 
@@ -413,9 +415,9 @@ public static class JsonConverter
 
         foreach (var item in jsonArray)
         {
-            var itemElement = document.CreateElement(itemElementName);
+            var itemElement = document.CreateElement(arrayItemElementName);
             root.AppendChild(itemElement);
-            AddJsonNodeToXmlDocument(document, itemElement, item);
+            AddJsonNodeToXmlDocument(document, itemElement, item, arrayItemElementName);
         }
 
         return document;
@@ -426,8 +428,9 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON document.</returns>
-    public static XmlDocument ToXmlDocument(this JsonDocument jsonDocument, string rootElementName = "root")
+    public static XmlDocument ToXmlDocument(this JsonDocument jsonDocument, string rootElementName = "root", string arrayItemElementName = "item")
     {
         ArgumentNullException.ThrowIfNull(jsonDocument);
 
@@ -436,13 +439,13 @@ public static class JsonConverter
         var root = document.CreateElement(rootElementName);
         document.AppendChild(root);
 
-        AddJsonElementToXmlDocument(document, root, jsonDocument.RootElement);
+        AddJsonElementToXmlDocument(document, root, jsonDocument.RootElement, arrayItemElementName);
 
         return document;
     }
 
     // Helper methods for XmlDocument
-    private static void AddJsonNodeToXmlDocument(XmlDocument document, XmlElement parent, JsonNode? node)
+    private static void AddJsonNodeToXmlDocument(XmlDocument document, XmlElement parent, JsonNode? node, string arrayItemElementName)
     {
         if (node == null)
             return;
@@ -461,16 +464,16 @@ public static class JsonConverter
                     var validXmlName = MakeValidXmlName(property.Key);
                     var childElement = document.CreateElement(validXmlName);
                     parent.AppendChild(childElement);
-                    AddJsonNodeToXmlDocument(document, childElement, property.Value);
+                    AddJsonNodeToXmlDocument(document, childElement, property.Value, arrayItemElementName);
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in node.AsArray())
                 {
-                    var childElement = document.CreateElement("item");
+                    var childElement = document.CreateElement(arrayItemElementName);
                     parent.AppendChild(childElement);
-                    AddJsonNodeToXmlDocument(document, childElement, item);
+                    AddJsonNodeToXmlDocument(document, childElement, item, arrayItemElementName);
                 }
                 break;
 
@@ -514,7 +517,7 @@ public static class JsonConverter
         }
     }
 
-    private static void AddJsonElementToXmlDocument(XmlDocument document, XmlElement parent, JsonElement element)
+    private static void AddJsonElementToXmlDocument(XmlDocument document, XmlElement parent, JsonElement element, string arrayItemElementName)
     {
         switch (element.ValueKind)
         {
@@ -524,16 +527,16 @@ public static class JsonConverter
                     var validXmlName = MakeValidXmlName(property.Name);
                     var childElement = document.CreateElement(validXmlName);
                     parent.AppendChild(childElement);
-                    AddJsonElementToXmlDocument(document, childElement, property.Value);
+                    AddJsonElementToXmlDocument(document, childElement, property.Value, arrayItemElementName);
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in element.EnumerateArray())
                 {
-                    var childElement = document.CreateElement("item");
+                    var childElement = document.CreateElement(arrayItemElementName);
                     parent.AppendChild(childElement);
-                    AddJsonElementToXmlDocument(document, childElement, item);
+                    AddJsonElementToXmlDocument(document, childElement, item, arrayItemElementName);
                 }
                 break;
 
@@ -575,14 +578,15 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON node.</returns>
-    public static XDocument ToXDocument(this JsonNode jsonNode, string rootElementName = "root")
+    public static XDocument ToXDocument(this JsonNode jsonNode, string rootElementName = "root", string arrayItemElementName = "item")
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
         document.Add(root);
 
-        AddJsonNodeToXml(root, jsonNode);
+        AddJsonNodeToXml(root, jsonNode, arrayItemElementName);
 
         return document;
     }
@@ -592,10 +596,11 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON object.</returns>
-    public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root")
+    public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root", string arrayItemElementName = "item")
     {
-        return ToXDocument(jsonObject as JsonNode, rootElementName);
+        return ToXDocument(jsonObject as JsonNode, rootElementName, arrayItemElementName);
     }
 
     /// <summary>
@@ -603,9 +608,9 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonArray">The <see cref="JsonArray"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <param name="itemElementName">The name of individual array item elements. Defaults to "item".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON array.</returns>
-    public static XDocument ToXDocument(this JsonArray jsonArray, string rootElementName = "root", string itemElementName = "item")
+    public static XDocument ToXDocument(this JsonArray jsonArray, string rootElementName = "root", string arrayItemElementName = "item")
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
@@ -613,9 +618,9 @@ public static class JsonConverter
 
         foreach (var item in jsonArray)
         {
-            var itemElement = new XElement(itemElementName);
+            var itemElement = new XElement(arrayItemElementName);
             root.Add(itemElement);
-            AddJsonNodeToXml(itemElement, item);
+            AddJsonNodeToXml(itemElement, item, arrayItemElementName);
         }
 
         return document;
@@ -626,14 +631,15 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON document.</returns>
-    public static XDocument ToXDocument(this JsonDocument jsonDocument, string rootElementName = "root")
+    public static XDocument ToXDocument(this JsonDocument jsonDocument, string rootElementName = "root", string arrayItemElementName = "item")
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
         document.Add(root);
 
-        AddJsonElementToXml(root, jsonDocument.RootElement);
+        AddJsonElementToXml(root, jsonDocument.RootElement, arrayItemElementName);
 
         return document;
     }
@@ -643,11 +649,12 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
     /// <param name="elementName">The name of the XML element. Defaults to "element".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XElement"/> representing the converted JSON node.</returns>
-    public static XElement ToXElement(this JsonNode jsonNode, string elementName = "element")
+    public static XElement ToXElement(this JsonNode jsonNode, string elementName = "element", string arrayItemElementName = "item")
     {
         var element = new XElement(elementName);
-        AddJsonNodeToXml(element, jsonNode);
+        AddJsonNodeToXml(element, jsonNode, arrayItemElementName);
         return element;
     }
 
@@ -656,16 +663,17 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
     /// <param name="elementName">The name of the XML element. Defaults to "element".</param>
+    /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
     /// <returns>An <see cref="XElement"/> representing the converted JSON document.</returns>
-    public static XElement ToXElement(this JsonDocument jsonDocument, string elementName = "element")
+    public static XElement ToXElement(this JsonDocument jsonDocument, string elementName = "element", string arrayItemElementName = "item")
     {
         var element = new XElement(elementName);
-        AddJsonElementToXml(element, jsonDocument.RootElement);
+        AddJsonElementToXml(element, jsonDocument.RootElement, arrayItemElementName);
         return element;
     }
 
     // Helper methods
-    private static void AddJsonNodeToXml(XElement parent, JsonNode? node)
+    private static void AddJsonNodeToXml(XElement parent, JsonNode? node, string arrayItemElementName)
     {
         if (node == null)
             return;
@@ -684,16 +692,16 @@ public static class JsonConverter
                     var validXmlName = MakeValidXmlName(property.Key);
                     var childElement = new XElement(validXmlName);
                     parent.Add(childElement);
-                    AddJsonNodeToXml(childElement, property.Value);
+                    AddJsonNodeToXml(childElement, property.Value, arrayItemElementName);
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in node.AsArray())
                 {
-                    var childElement = new XElement("item");
+                    var childElement = new XElement(arrayItemElementName);
                     parent.Add(childElement);
-                    AddJsonNodeToXml(childElement, item);
+                    AddJsonNodeToXml(childElement, item, arrayItemElementName);
                 }
                 break;
 
@@ -737,7 +745,7 @@ public static class JsonConverter
         }
     }
 
-    private static void AddJsonElementToXml(XElement parent, JsonElement element)
+    private static void AddJsonElementToXml(XElement parent, JsonElement element, string arrayItemElementName)
     {
         switch (element.ValueKind)
         {
@@ -747,16 +755,16 @@ public static class JsonConverter
                     var validXmlName = MakeValidXmlName(property.Name);
                     var childElement = new XElement(validXmlName);
                     parent.Add(childElement);
-                    AddJsonElementToXml(childElement, property.Value);
+                    AddJsonElementToXml(childElement, property.Value, arrayItemElementName);
                 }
                 break;
 
             case JsonValueKind.Array:
                 foreach (var item in element.EnumerateArray())
                 {
-                    var childElement = new XElement("item");
+                    var childElement = new XElement(arrayItemElementName);
                     parent.Add(childElement);
-                    AddJsonElementToXml(childElement, item);
+                    AddJsonElementToXml(childElement, item, arrayItemElementName);
                 }
                 break;
 

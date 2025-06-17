@@ -170,7 +170,7 @@ public static class YamlConverter
     /// <param name="yamlStream">The YAML stream to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
     /// <returns>An array of XmlDocument objects representing each document in the YAML stream.</returns>
-    public static XmlDocument[] ToXmlDocumentArray(this YamlStream yamlStream, string rootElementName = "root")
+    public static XmlDocument[] ToXmlDocumentArray(this YamlStream yamlStream, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(yamlStream);
 
@@ -182,7 +182,7 @@ public static class YamlConverter
             var rootElement = xmlDocument.CreateElement(rootElementName);
             xmlDocument.AppendChild(rootElement);
 
-            ConvertYamlNodeToXml(xmlDocument, rootElement, rootElementName, yamlStream.Documents[i].RootNode);
+            ConvertYamlNodeToXml(xmlDocument, rootElement, rootElementName, yamlStream.Documents[i].RootNode, XmlConverter.GetMappingStrategy(xmlMappingStrategy));
             result[i] = xmlDocument;
         }
 
@@ -196,7 +196,7 @@ public static class YamlConverter
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
     /// <returns>An XmlDocument representing the first document in the YAML stream.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
-    public static XmlDocument ToXmlDocument(this YamlStream yamlStream, string rootElementName = "root")
+    public static XmlDocument ToXmlDocument(this YamlStream yamlStream, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(yamlStream);
 
@@ -205,11 +205,56 @@ public static class YamlConverter
             throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToXmlDocumentArray)} to convert all documents.");
         }
 
-        var documents = ToXmlDocumentArray(yamlStream, rootElementName);
+        var documents = ToXmlDocumentArray(yamlStream, rootElementName, XmlConverter.GetMappingStrategy(xmlMappingStrategy));
         return documents.Length > 0 ? documents[0] : new XmlDocument();
     }
 
-    private static void ConvertYamlNodeToXml(XmlDocument xmlDocument, XmlElement parentElement, string elementName, YamlNode? yamlNode)
+    /// <summary>
+    /// Converts a YAML stream to an array of XDocument objects.
+    /// </summary>
+    /// <param name="yamlStream">The YAML stream to convert.</param>
+    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <returns>An array of XDocument objects representing each document in the YAML stream.</returns>
+    public static XDocument[] ToXDocumentArray(this YamlStream yamlStream, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
+    {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
+        var result = new XDocument[yamlStream.Documents.Count];
+
+        for (int i = 0; i < yamlStream.Documents.Count; i++)
+        {
+            var xDocument = new XDocument();
+            var rootElement = new XElement(rootElementName);
+            xDocument.Add(rootElement);
+
+            ConvertYamlNodeToXElement(yamlStream.Documents[i].RootNode, rootElement, rootElementName, XmlConverter.GetMappingStrategy(xmlMappingStrategy));
+            result[i] = xDocument;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Converts a YAML stream to a single XDocument.
+    /// </summary>
+    /// <param name="yamlStream">The YAML stream to convert.</param>
+    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <returns>An XDocument representing the first document in the YAML stream.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
+    public static XDocument ToXDocument(this YamlStream yamlStream, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
+    {
+        ArgumentNullException.ThrowIfNull(yamlStream);
+
+        if (yamlStream.Documents.Count > 1)
+        {
+            throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToXDocumentArray)} to convert all documents.");
+        }
+
+        var documents = ToXDocumentArray(yamlStream, rootElementName, XmlConverter.GetMappingStrategy(xmlMappingStrategy));
+        return documents.Length > 0 ? documents[0] : new XDocument(new XElement(rootElementName));
+    }
+
+    private static void ConvertYamlNodeToXml(XmlDocument xmlDocument, XmlElement parentElement, string elementName, YamlNode? yamlNode, Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy)
     {
         if (yamlNode == null) return;
 
@@ -224,7 +269,7 @@ public static class YamlConverter
                 {
                     var itemElement = xmlDocument.CreateElement(elementName);
                     parentElement.AppendChild(itemElement);
-                    ConvertYamlNodeToXml(xmlDocument, itemElement, elementName, childNode);
+                    ConvertYamlNodeToXml(xmlDocument, itemElement, elementName, childNode, xmlMappingStrategy);
                 }
                 break;
 
@@ -236,13 +281,13 @@ public static class YamlConverter
                         var validXmlName = XmlConverter.MakeValidXmlName(keyNode.Value ?? "element");
                         if (entry.Value is YamlSequenceNode)
                         {
-                            ConvertYamlNodeToXml(xmlDocument, parentElement, validXmlName, entry.Value);
+                            ConvertYamlNodeToXml(xmlDocument, parentElement, validXmlName, entry.Value, xmlMappingStrategy);
                         }
                         else
                         {
                             var childElement = xmlDocument.CreateElement(validXmlName);
                             parentElement.AppendChild(childElement);
-                            ConvertYamlNodeToXml(xmlDocument, childElement, validXmlName, entry.Value);
+                            ConvertYamlNodeToXml(xmlDocument, childElement, validXmlName, entry.Value, xmlMappingStrategy);
                         }
                     }
                 }
@@ -250,52 +295,7 @@ public static class YamlConverter
         }
     }
 
-    /// <summary>
-    /// Converts a YAML stream to an array of XDocument objects.
-    /// </summary>
-    /// <param name="yamlStream">The YAML stream to convert.</param>
-    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <returns>An array of XDocument objects representing each document in the YAML stream.</returns>
-    public static XDocument[] ToXDocumentArray(this YamlStream yamlStream, string rootElementName = "root")
-    {
-        ArgumentNullException.ThrowIfNull(yamlStream);
-
-        var result = new XDocument[yamlStream.Documents.Count];
-
-        for (int i = 0; i < yamlStream.Documents.Count; i++)
-        {
-            var xDocument = new XDocument();
-            var rootElement = new XElement(rootElementName);
-            xDocument.Add(rootElement);
-
-            ConvertYamlNodeToXElement(yamlStream.Documents[i].RootNode, rootElement, rootElementName);
-            result[i] = xDocument;
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Converts a YAML stream to a single XDocument.
-    /// </summary>
-    /// <param name="yamlStream">The YAML stream to convert.</param>
-    /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
-    /// <returns>An XDocument representing the first document in the YAML stream.</returns>
-    /// <exception cref="InvalidOperationException">Thrown when the YAML stream contains multiple documents.</exception>
-    public static XDocument ToXDocument(this YamlStream yamlStream, string rootElementName = "root")
-    {
-        ArgumentNullException.ThrowIfNull(yamlStream);
-
-        if (yamlStream.Documents.Count > 1)
-        {
-            throw new InvalidOperationException($"YamlStream contains multiple documents. Use {nameof(ToXDocumentArray)} to convert all documents.");
-        }
-
-        var documents = ToXDocumentArray(yamlStream);
-        return documents.Length > 0 ? documents[0] : new XDocument(new XElement(rootElementName));
-    }
-
-    private static void ConvertYamlNodeToXElement(YamlNode? yamlNode, XElement parentElement, string elementName)
+    private static void ConvertYamlNodeToXElement(YamlNode? yamlNode, XElement parentElement, string elementName, Func<string, (bool IsAttribute, string Name)> xmlMappingStrategy)
     {
         if (yamlNode == null) return;
 
@@ -310,7 +310,7 @@ public static class YamlConverter
                 {
                     var itemElement = new XElement(elementName);
                     parentElement.Add(itemElement);
-                    ConvertYamlNodeToXElement(childNode, itemElement, elementName);
+                    ConvertYamlNodeToXElement(childNode, itemElement, elementName, xmlMappingStrategy);
                 }
                 break;
 
@@ -322,13 +322,13 @@ public static class YamlConverter
                         var validXmlName = XmlConverter.MakeValidXmlName(keyNode.Value ?? "element");
                         if (entry.Value is YamlSequenceNode)
                         {
-                            ConvertYamlNodeToXElement(entry.Value, parentElement, validXmlName);
+                            ConvertYamlNodeToXElement(entry.Value, parentElement, validXmlName, xmlMappingStrategy);
                         }
                         else
                         {
                             var childElement = new XElement(validXmlName);
                             parentElement.Add(childElement);
-                            ConvertYamlNodeToXElement(entry.Value, childElement, validXmlName);
+                            ConvertYamlNodeToXElement(entry.Value, childElement, validXmlName, xmlMappingStrategy);
                         }
                     }
                 }
@@ -336,33 +336,9 @@ public static class YamlConverter
         }
     }
 
-    /// <summary>
-    /// Converts a YAML string to an XmlDocument.
-    /// </summary>
-    /// <param name="yamlString">The YAML string to convert.</param>
-    /// <returns>An XmlDocument representing the YAML data.</returns>
-    public static XmlDocument YamlStringToXmlDocument(string yamlString)
-    {
-        var yamlStream = new YamlStream();
-        using var reader = new StringReader(yamlString);
-        yamlStream.Load(reader);
-        return yamlStream.ToXmlDocument();
-    }
-
-    /// <summary>
-    /// Converts a YAML string to an XDocument.
-    /// </summary>
-    /// <param name="yamlString">The YAML string to convert.</param>
-    /// <returns>An XDocument representing the YAML data.</returns>
-    public static XDocument YamlStringToXDocument(string yamlString)
-    {
-        var yamlStream = new YamlStream();
-        using var reader = new StringReader(yamlString);
-        yamlStream.Load(reader);
-        return yamlStream.ToXDocument();
-    }
-
     #endregion
+
+    #region Helpers
 
     internal static YamlScalarNode CreateYamlScalarNode(object? value)
     {
@@ -427,4 +403,6 @@ public static class YamlConverter
 
         return new YamlScalarNode();
     }
+
+    #endregion
 }

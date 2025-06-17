@@ -721,4 +721,73 @@ public static class XmlConverter
 
         return validName.ToString();
     }
+
+    internal static void ProcessNamespaceAttribute<T>(string name, T value,
+        Dictionary<string, T> allNamedNs, List<(string name, T value)> allNs)
+    {
+        if (name.StartsWith("xmlns:") && name.Length > 6)
+        {
+            var nameSplit = name.Split(':');
+            if (nameSplit.Length != 2)
+            {
+                throw new InvalidOperationException($"Invalid namespace declaration: {name}.");
+            }
+
+            if (allNamedNs.ContainsKey(nameSplit[1]))
+            {
+                throw new InvalidOperationException($"Duplicate namespace declaration: {name}");
+            }
+
+            allNamedNs.Add(nameSplit[1], value);
+        }
+
+        allNs.Add((name, value));
+    }
+
+    internal static void ProcessPropertyWithNamespace<T>(string name, T value, bool isAttribute,
+        Dictionary<string, T> allNamedNs,
+        List<(bool isAttribute, string name, string validXmlName, string? nsUsed, string? nsPreName, string? nsPostName, T value)> props)
+    {
+        string? nsUsed = null;
+        string? nsPreName = null;
+        string? nsPostName = null;
+        var validXmlName = MakeValidXmlName(name);
+
+        if (validXmlName.Contains(':'))
+        {
+            var nameSplit = validXmlName.Split(':');
+            if (nameSplit.Length != 2)
+            {
+                throw new InvalidOperationException($"Invalid namespace declaration: {validXmlName}.");
+            }
+
+            nsPreName = nameSplit[0];
+            nsPostName = nameSplit[1];
+
+            if (allNamedNs.TryGetValue(nsPreName, out var nsValue))
+            {
+                nsUsed = nsValue?.ToString();
+            }
+            else
+            {
+                throw new InvalidOperationException($"Namespace prefix '{nsPreName}' not declared for property '{name}'.");
+            }
+        }
+
+        props.Add((isAttribute, name, validXmlName, nsUsed, nsPreName, nsPostName, value));
+    }
+
+    internal static Func<string, (bool IsAttribute, string Name)> GetMappingStrategy(
+        Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy)
+    {
+#if NETSTANDARD
+        return xmlMappingStrategy ?? (propertyName => propertyName.StartsWith("$") 
+            ? (true, propertyName[1..]) 
+            : (false, propertyName));
+#else
+        return xmlMappingStrategy ?? (propertyName => propertyName.StartsWith('$')
+            ? (true, propertyName[1..])
+            : (false, propertyName));
+#endif
+    }
 }

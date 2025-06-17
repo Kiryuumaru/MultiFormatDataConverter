@@ -379,19 +379,22 @@ public static class JsonConverter
     #region ToXml
 
     /// <summary>
-    /// Converts a JSON string to a YAML string asynchronously.
+    /// Converts a JSON string to an XML string asynchronously.
     /// </summary>
     /// <param name="jsonString">The JSON string to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/> to observe while waiting for the task to complete.</param>
     /// <returns>
-    /// A task that represents the asynchronous operation. The task result contains the YAML string representation of the input JSON string.
+    /// A task that represents the asynchronous operation. The task result contains the XML string representation of the input JSON string.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="jsonString"/> is null.</exception>
     /// <exception cref="InvalidOperationException">
-    /// Thrown if parsing the JSON string as a node fails or if the conversion to YAML string fails.
+    /// Thrown if parsing the JSON string as a node fails or if the conversion to XML string fails.
     /// </exception>
-    public static async Task<string> ToXml(string jsonString, string rootElementName = "root", CancellationToken cancellationToken = default)
+    public static async Task<string> ToXml(string jsonString, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(jsonString);
 
@@ -441,8 +444,11 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON node.</returns>
-    public static XmlDocument ToXmlDocument(this JsonNode jsonNode, string rootElementName = "root")
+    public static XmlDocument ToXmlDocument(this JsonNode jsonNode, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(jsonNode);
 
@@ -451,7 +457,7 @@ public static class JsonConverter
         var root = document.CreateElement(rootElementName);
         document.AppendChild(root);
 
-        AddJsonNodeToXmlDocument(document, root, rootElementName, jsonNode);
+        AddJsonNodeToXmlDocument(document, root, rootElementName, jsonNode, xmlMappingStrategy);
 
         return document;
     }
@@ -461,12 +467,15 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON object.</returns>
-    public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root")
+    public static XmlDocument ToXmlDocument(this JsonObject jsonObject, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(jsonObject);
 
-        return ToXmlDocument(jsonObject as JsonNode, rootElementName);
+        return ToXmlDocument(jsonObject as JsonNode, rootElementName, xmlMappingStrategy);
     }
 
     /// <summary>
@@ -475,8 +484,11 @@ public static class JsonConverter
     /// <param name="jsonArray">The <see cref="JsonArray"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
     /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON array.</returns>
-    public static XmlDocument ToXmlDocument(this JsonArray jsonArray, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XmlDocument ToXmlDocument(this JsonArray jsonArray, string rootElementName = "root", string arrayItemElementName = "item", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(jsonArray);
 
@@ -489,7 +501,7 @@ public static class JsonConverter
         {
             var itemElement = document.CreateElement(arrayItemElementName);
             root.AppendChild(itemElement);
-            AddJsonNodeToXmlDocument(document, itemElement, arrayItemElementName, item);
+            AddJsonNodeToXmlDocument(document, itemElement, arrayItemElementName, item, xmlMappingStrategy);
         }
 
         return document;
@@ -500,8 +512,11 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XmlDocument"/> representing the converted JSON document.</returns>
-    public static XmlDocument ToXmlDocument(this JsonDocument jsonDocument, string rootElementName = "root")
+    public static XmlDocument ToXmlDocument(this JsonDocument jsonDocument, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(jsonDocument);
 
@@ -510,16 +525,21 @@ public static class JsonConverter
         var root = document.CreateElement(rootElementName);
         document.AppendChild(root);
 
-        AddJsonElementToXmlDocument(document, root, rootElementName, jsonDocument.RootElement);
+        AddJsonElementToXmlDocument(document, root, rootElementName, jsonDocument.RootElement, xmlMappingStrategy);
 
         return document;
     }
 
-    // Helper methods for XmlDocument
-    private static void AddJsonNodeToXmlDocument(XmlDocument document, XmlElement parent, string elementName, JsonNode? node)
+    private static void AddJsonNodeToXmlDocument(XmlDocument document, XmlElement parent, string elementName, JsonNode? node, Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy)
     {
         if (node == null)
             return;
+        
+#if NETSTANDARD
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith("$") ? (true, propertyName[1..]) : (false, propertyName);
+#else
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith('$') ? (true, propertyName[1..]) : (false, propertyName);
+#endif
 
 #if NET8_0_OR_GREATER
         var valueKind = node.GetValueKind();
@@ -532,16 +552,25 @@ public static class JsonConverter
             case JsonValueKind.Object:
                 foreach (var property in node.AsObject())
                 {
-                    var validXmlName = XmlConverter.MakeValidXmlName(property.Key);
-                    if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                    var (isAttribute, name) = xmlMappingStrategy(property.Key);
+
+                    if (isAttribute)
                     {
-                        AddJsonNodeToXmlDocument(document, parent, validXmlName, property.Value);
+                        XmlConverter.CreateXmlAttribute(parent, name, property.Value);
                     }
                     else
                     {
-                        var childElement = document.CreateElement(validXmlName);
-                        parent.AppendChild(childElement);
-                        AddJsonNodeToXmlDocument(document, childElement, validXmlName, property.Value);
+                        var validXmlName = XmlConverter.MakeValidXmlName(name);
+                        if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                        {
+                            AddJsonNodeToXmlDocument(document, parent, validXmlName, property.Value, xmlMappingStrategy);
+                        }
+                        else
+                        {
+                            var childElement = document.CreateElement(validXmlName);
+                            parent.AppendChild(childElement);
+                            AddJsonNodeToXmlDocument(document, childElement, validXmlName, property.Value, xmlMappingStrategy);
+                        }
                     }
                 }
                 break;
@@ -551,7 +580,7 @@ public static class JsonConverter
                 {
                     var childElement = document.CreateElement(elementName);
                     parent.AppendChild(childElement);
-                    AddJsonNodeToXmlDocument(document, childElement, elementName, item);
+                    AddJsonNodeToXmlDocument(document, childElement, elementName, item, xmlMappingStrategy);
                 }
                 break;
 
@@ -568,23 +597,38 @@ public static class JsonConverter
         }
     }
 
-    private static void AddJsonElementToXmlDocument(XmlDocument document, XmlElement parent, string elementName, JsonElement element)
+    private static void AddJsonElementToXmlDocument(XmlDocument document, XmlElement parent, string elementName, JsonElement element, Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
+#if NETSTANDARD
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith("$") ? (true, propertyName[1..]) : (false, propertyName);
+#else
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith('$') ? (true, propertyName[1..]) : (false, propertyName);
+#endif
+
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
                 foreach (var property in element.EnumerateObject())
                 {
-                    var validXmlName = XmlConverter.MakeValidXmlName(property.Name);
-                    if (property.Value.ValueKind == JsonValueKind.Array)
+                    var (isAttribute, name) = xmlMappingStrategy(property.Name);
+
+                    if (isAttribute)
                     {
-                        AddJsonElementToXmlDocument(document, parent, validXmlName, property.Value);
+                        XmlConverter.CreateXmlAttribute(parent, name, property.Value);
                     }
                     else
                     {
-                        var childElement = document.CreateElement(validXmlName);
-                        parent.AppendChild(childElement);
-                        AddJsonElementToXmlDocument(document, childElement, validXmlName, property.Value);
+                        var validXmlName = XmlConverter.MakeValidXmlName(property.Name);
+                        if (property.Value.ValueKind == JsonValueKind.Array)
+                        {
+                            AddJsonElementToXmlDocument(document, parent, validXmlName, property.Value);
+                        }
+                        else
+                        {
+                            var childElement = document.CreateElement(validXmlName);
+                            parent.AppendChild(childElement);
+                            AddJsonElementToXmlDocument(document, childElement, validXmlName, property.Value);
+                        }
                     }
                 }
                 break;
@@ -616,14 +660,17 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonNode">The <see cref="JsonNode"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON node.</returns>
-    public static XDocument ToXDocument(this JsonNode jsonNode, string rootElementName = "root")
+    public static XDocument ToXDocument(this JsonNode jsonNode, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
         document.Add(root);
 
-        AddJsonNodeToXml(root, jsonNode, rootElementName);
+        AddJsonNodeToXml(root, jsonNode, rootElementName, xmlMappingStrategy);
 
         return document;
     }
@@ -633,10 +680,13 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonObject">The <see cref="JsonObject"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON object.</returns>
-    public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root")
+    public static XDocument ToXDocument(this JsonObject jsonObject, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
-        return ToXDocument(jsonObject as JsonNode, rootElementName);
+        return ToXDocument(jsonObject as JsonNode, rootElementName, xmlMappingStrategy);
     }
 
     /// <summary>
@@ -645,8 +695,11 @@ public static class JsonConverter
     /// <param name="jsonArray">The <see cref="JsonArray"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
     /// <param name="arrayItemElementName">The name of individual array item elements. Defaults to "item".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON array.</returns>
-    public static XDocument ToXDocument(this JsonArray jsonArray, string rootElementName = "root", string arrayItemElementName = "item")
+    public static XDocument ToXDocument(this JsonArray jsonArray, string rootElementName = "root", string arrayItemElementName = "item", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
@@ -656,7 +709,7 @@ public static class JsonConverter
         {
             var itemElement = new XElement(arrayItemElementName);
             root.Add(itemElement);
-            AddJsonNodeToXml(itemElement, item, arrayItemElementName);
+            AddJsonNodeToXml(itemElement, item, arrayItemElementName, xmlMappingStrategy);
         }
 
         return document;
@@ -667,23 +720,32 @@ public static class JsonConverter
     /// </summary>
     /// <param name="jsonDocument">The <see cref="JsonDocument"/> to convert.</param>
     /// <param name="rootElementName">The name of the root XML element. Defaults to "root".</param>
+    /// <param name="xmlMappingStrategy">
+    /// Optional function to determine if a property should be an attribute and its XML name. Defaults to treating properties starting with '$' as attributes.
+    /// </param>
     /// <returns>An <see cref="XDocument"/> representing the converted JSON document.</returns>
-    public static XDocument ToXDocument(this JsonDocument jsonDocument, string rootElementName = "root")
+    public static XDocument ToXDocument(this JsonDocument jsonDocument, string rootElementName = "root", Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy = null)
     {
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null));
         var root = new XElement(rootElementName);
         document.Add(root);
 
-        AddJsonElementToXml(root, jsonDocument.RootElement, rootElementName);
+        AddJsonElementToXml(root, jsonDocument.RootElement, rootElementName, xmlMappingStrategy);
 
         return document;
     }
 
     // Helper methods
-    private static void AddJsonNodeToXml(XElement parent, JsonNode? node, string elementName)
+    private static void AddJsonNodeToXml(XElement parent, JsonNode? node, string elementName, Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy)
     {
         if (node == null)
             return;
+
+#if NETSTANDARD
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith("$") ? (true, propertyName[1..]) : (false, propertyName);
+#else
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith('$') ? (true, propertyName[1..]) : (false, propertyName);
+#endif
 
 #if NET8_0_OR_GREATER
         var valueKind = node.GetValueKind();
@@ -696,16 +758,25 @@ public static class JsonConverter
             case JsonValueKind.Object:
                 foreach (var property in node.AsObject())
                 {
-                    var validXmlName = XmlConverter.MakeValidXmlName(property.Key);
-                    if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                    var (isAttribute, name) = xmlMappingStrategy(property.Key);
+
+                    if (isAttribute)
                     {
-                        AddJsonNodeToXml(parent, property.Value, validXmlName);
+                        XmlConverter.CreateXAttribute(parent, name, property.Value);
                     }
                     else
                     {
-                        var childElement = new XElement(validXmlName);
-                        parent.Add(childElement);
-                        AddJsonNodeToXml(childElement, property.Value, validXmlName);
+                        var validXmlName = XmlConverter.MakeValidXmlName(name);
+                        if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                        {
+                            AddJsonNodeToXml(parent, property.Value, validXmlName, xmlMappingStrategy);
+                        }
+                        else
+                        {
+                            var childElement = new XElement(validXmlName);
+                            parent.Add(childElement);
+                            AddJsonNodeToXml(childElement, property.Value, validXmlName, xmlMappingStrategy);
+                        }
                     }
                 }
                 break;
@@ -715,7 +786,7 @@ public static class JsonConverter
                 {
                     var childElement = new XElement(elementName);
                     parent.Add(childElement);
-                    AddJsonNodeToXml(childElement, item, elementName);
+                    AddJsonNodeToXml(childElement, item, elementName, xmlMappingStrategy);
                 }
                 break;
 
@@ -732,8 +803,14 @@ public static class JsonConverter
         }
     }
 
-    private static void AddJsonElementToXml(XElement parent, JsonElement element, string elementName)
+    private static void AddJsonElementToXml(XElement parent, JsonElement element, string elementName, Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy)
     {
+#if NETSTANDARD
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith("$") ? (true, propertyName[1..]) : (false, propertyName);
+#else
+        xmlMappingStrategy ??= propertyName => propertyName.StartsWith('$') ? (true, propertyName[1..]) : (false, propertyName);
+#endif
+
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
@@ -742,13 +819,13 @@ public static class JsonConverter
                     var validXmlName = XmlConverter.MakeValidXmlName(property.Name);
                     if (property.Value.ValueKind == JsonValueKind.Array)
                     {
-                        AddJsonElementToXml(parent, property.Value, validXmlName);
+                        AddJsonElementToXml(parent, property.Value, validXmlName, xmlMappingStrategy);
                     }
                     else
                     {
                         var childElement = new XElement(validXmlName);
                         parent.Add(childElement);
-                        AddJsonElementToXml(childElement, property.Value, validXmlName);
+                        AddJsonElementToXml(childElement, property.Value, validXmlName, xmlMappingStrategy);
                     }
                 }
                 break;
@@ -758,7 +835,7 @@ public static class JsonConverter
                 {
                     var childElement = new XElement(elementName);
                     parent.Add(childElement);
-                    AddJsonElementToXml(childElement, item, elementName);
+                    AddJsonElementToXml(childElement, item, elementName, xmlMappingStrategy);
                 }
                 break;
 
@@ -775,7 +852,7 @@ public static class JsonConverter
         }
     }
 
-    #endregion
+#endregion
 
     internal static JsonValue? CreateJsonValue(object? value)
     {

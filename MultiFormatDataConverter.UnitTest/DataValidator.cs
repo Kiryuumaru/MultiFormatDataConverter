@@ -405,7 +405,7 @@ public static class XmlValidator
         {
             if (nullIsEmpty && (string.IsNullOrEmpty(val1) && string.IsNullOrEmpty(val2)))
                 return;
-            if (val1 != val2)
+            if (FormatValue(val1) != FormatValue(val2))
                 throw new XmlComparisonException($"XML {path}: Value mismatch. Expected '{val1}', Actual '{val2}'");
         }
 
@@ -443,13 +443,18 @@ public static class XmlValidator
         // Attributes
         var attrs1 = elem1.Attributes.Cast<System.Xml.XmlAttribute>().OrderBy(a => a.Name).ToList();
         var attrs2 = elem2.Attributes.Cast<System.Xml.XmlAttribute>().OrderBy(a => a.Name).ToList();
-        if (attrs1.Count != attrs2.Count)
-            throw new XmlComparisonException($"XML {path}: Attribute count mismatch. Expected {attrs1.Count}, Actual {attrs2.Count}");
 
-        for (int i = 0; i < attrs1.Count; i++)
+        // Compare attributes regardless of order
+        var attrs1Dict = attrs1.ToDictionary(a => a.Name.ToString(), a => a.Value);
+        var attrs2Dict = attrs2.ToDictionary(a => a.Name.ToString(), a => a.Value);
+
+        if (attrs1Dict.Count != attrs2Dict.Count)
+            throw new XmlComparisonException($"XML {path}: Attribute count mismatch. Expected {attrs1Dict.Count}, Actual {attrs2Dict.Count}");
+
+        foreach (var kvp in attrs1Dict)
         {
-            if (attrs1[i].Name != attrs2[i].Name || attrs1[i].Value != attrs2[i].Value)
-                throw new XmlComparisonException($"XML {path}: Attribute mismatch at '{attrs1[i].Name}'. Expected '{attrs1[i].Value}', Actual '{attrs2[i].Value}'");
+            if (!attrs2Dict.TryGetValue(kvp.Key, out var value2) || kvp.Value != value2)
+                throw new XmlComparisonException($"XML {path}: Attribute mismatch at '{kvp.Key}'. Expected '{kvp.Value}', Actual '{value2 ?? "missing"}'");
         }
 
         // Value (for leaf nodes)

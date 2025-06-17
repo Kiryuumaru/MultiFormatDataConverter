@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Xml;
@@ -530,6 +531,130 @@ public static class JsonConverter
         return document;
     }
 
+    private static (Dictionary<string, JsonNode?> AllNamesNs, List<(string name, JsonNode? value)> AllNs, List<(bool isAttribute, string name, string validXmlName, string? nsUsed, string? nsPreName, string? nsPostName, JsonNode? value)> AllProps) XmlPreloadJsonNode(JsonNode node, Func<string, (bool IsAttribute, string Name)> xmlMappingStrategy)
+    {
+        Dictionary<string, JsonNode?> allNamedNs = [];
+        List<(string name, JsonNode? value)> allNs = [];
+        List<(bool isAttribute, string name, JsonNode? value)> preProps = [];
+        List<(bool isAttribute, string name, string validXmlName, string? nsUsed, string? nsPreName, string? nsPostName, JsonNode? value)> props = [];
+        foreach (var property in node.AsObject())
+        {
+            var (isAttribute, name) = xmlMappingStrategy(property.Key);
+
+            if (isAttribute && name.StartsWith("xmlns"))
+            {
+                if (name.StartsWith("xmlns:") && name.Length > 6)
+                {
+                    var nameSplit = name.Split(':');
+                    if (nameSplit.Length != 2)
+                    {
+                        throw new InvalidOperationException($"Invalid namespace declaration: {name}.");
+                    }
+                    if (allNamedNs.ContainsKey(nameSplit[1]))
+                    {
+                        throw new InvalidOperationException($"Duplicate namespace declaration: {name}");
+                    }
+                    allNamedNs.Add(nameSplit[1], property.Value);
+                }
+                allNs.Add((name, property.Value));
+            }
+            else
+            {
+                preProps.Add((isAttribute, name, property.Value));
+            }
+        }
+        foreach (var (isAttribute, name, value) in preProps)
+        {
+            string? nsUsed = null;
+            string? nsPreName = null;
+            string? nsPostName = null;
+            var validXmlName = XmlConverter.MakeValidXmlName(name);
+            if (validXmlName.Contains(':'))
+            {
+                var nameSplit = validXmlName.Split(':');
+                if (nameSplit.Length != 2)
+                {
+                    throw new InvalidOperationException($"Invalid namespace declaration: {validXmlName}.");
+                }
+                nsPreName = nameSplit[0];
+                nsPostName = nameSplit[1];
+                if (allNamedNs.TryGetValue(nsPreName, out var nsValue))
+                {
+                    nsUsed = nsValue?.ToString();
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Namespace prefix '{nsPreName}' not declared for property '{name}'.");
+                }
+            }
+
+            props.Add((isAttribute, name, validXmlName, nsUsed, nsPreName, nsPostName, value));
+        }
+        return (allNamedNs, allNs, props);
+    }
+
+    private static (Dictionary<string, JsonElement> AllNamesNs, List<(string name, JsonElement value)> AllNs, List<(bool isAttribute, string name, string validXmlName, string? nsUsed, string? nsPreName, string? nsPostName, JsonElement value)> AllProps) XmlPreloadJsonElement(JsonElement element, Func<string, (bool IsAttribute, string Name)> xmlMappingStrategy)
+    {
+        Dictionary<string, JsonElement> allNamedNs = [];
+        List<(string name, JsonElement value)> allNs = [];
+        List<(bool isAttribute, string name, JsonElement value)> preProps = [];
+        List<(bool isAttribute, string name, string validXmlName, string? nsUsed, string? nsPreName, string? nsPostName, JsonElement value)> props = [];
+        foreach (var property in element.EnumerateObject())
+        {
+            var (isAttribute, name) = xmlMappingStrategy(property.Name);
+            if (isAttribute && name.StartsWith("xmlns"))
+            {
+                if (name.StartsWith("xmlns:") && name.Length > 6)
+                {
+                    var nameSplit = name.Split(':');
+                    if (nameSplit.Length != 2)
+                    {
+                        throw new InvalidOperationException($"Invalid namespace declaration: {name}.");
+                    }
+                    if (allNamedNs.ContainsKey(nameSplit[1]))
+                    {
+                        throw new InvalidOperationException($"Duplicate namespace declaration: {name}");
+                    }
+                    allNamedNs.Add(nameSplit[1], property.Value);
+                }
+
+                allNs.Add((name, property.Value));
+            }
+            else
+            {
+                preProps.Add((isAttribute, name, property.Value));
+            }
+        }
+        foreach (var (isAttribute, name, value) in preProps)
+        {
+            string? nsUsed = null;
+            string? nsPreName = null;
+            string? nsPostName = null;
+            var validXmlName = XmlConverter.MakeValidXmlName(name);
+            if (validXmlName.Contains(':'))
+            {
+                var nameSplit = validXmlName.Split(':');
+                if (nameSplit.Length != 2)
+                {
+                    throw new InvalidOperationException($"Invalid namespace declaration: {validXmlName}.");
+                }
+                nsPreName = nameSplit[0];
+                nsPostName = nameSplit[1];
+                if (allNamedNs.TryGetValue(nsPreName, out var nsValue))
+                {
+                    nsUsed = nsValue.ToString();
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Namespace prefix '{nsPreName}' not declared for property '{name}'.");
+                }
+            }
+
+            props.Add((isAttribute, name, validXmlName, nsUsed, nsPreName, nsPostName, value));
+        }
+        return (allNamedNs, allNs, props);
+    }
+
     private static void AddJsonNodeToXmlDocument(XmlDocument document, XmlElement parent, string elementName, JsonNode? node, Func<string, (bool IsAttribute, string Name)>? xmlMappingStrategy)
     {
         if (node == null)
@@ -550,26 +675,36 @@ public static class JsonConverter
         switch (valueKind)
         {
             case JsonValueKind.Object:
-                foreach (var property in node.AsObject())
+                var (allNamedNs, allNs, props) = XmlPreloadJsonNode(node, xmlMappingStrategy);
+                foreach (var (name, value) in allNs)
                 {
-                    var (isAttribute, name) = xmlMappingStrategy(property.Key);
-
+                    XmlConverter.CreateXmlAttribute(parent, name, value, null);
+                }
+                foreach (var (isAttribute, name, validXmlName, nsUsed, nsPreName, nsPostName, value) in props)
+                {
                     if (isAttribute)
                     {
-                        XmlConverter.CreateXmlAttribute(parent, name, property.Value);
+                        XmlConverter.CreateXmlAttribute(parent, name, value, nsUsed);
                     }
                     else
                     {
-                        var validXmlName = XmlConverter.MakeValidXmlName(name);
-                        if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                        if (value?.GetValueKind() == JsonValueKind.Array)
                         {
-                            AddJsonNodeToXmlDocument(document, parent, validXmlName, property.Value, xmlMappingStrategy);
+                            AddJsonNodeToXmlDocument(document, parent, validXmlName, value, xmlMappingStrategy);
                         }
                         else
                         {
-                            var childElement = document.CreateElement(validXmlName);
+                            XmlElement childElement;
+                            if (nsUsed != null)
+                            {
+                                childElement = document.CreateElement(validXmlName, nsUsed);
+                            }
+                            else
+                            {
+                                childElement = document.CreateElement(validXmlName);
+                            }
                             parent.AppendChild(childElement);
-                            AddJsonNodeToXmlDocument(document, childElement, validXmlName, property.Value, xmlMappingStrategy);
+                            AddJsonNodeToXmlDocument(document, childElement, validXmlName, value, xmlMappingStrategy);
                         }
                     }
                 }
@@ -608,26 +743,36 @@ public static class JsonConverter
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
-                foreach (var property in element.EnumerateObject())
+                var (allNamedNs, allNs, props) = XmlPreloadJsonElement(element, xmlMappingStrategy);
+                foreach (var (name, value) in allNs)
                 {
-                    var (isAttribute, name) = xmlMappingStrategy(property.Name);
-
+                    XmlConverter.CreateXmlAttribute(parent, name, value, null);
+                }
+                foreach (var (isAttribute, name, validXmlName, nsUsed, nsPreName, nsPostName, value) in props)
+                {
                     if (isAttribute)
                     {
-                        XmlConverter.CreateXmlAttribute(parent, name, property.Value);
+                        XmlConverter.CreateXmlAttribute(parent, name, value, nsUsed);
                     }
                     else
                     {
-                        var validXmlName = XmlConverter.MakeValidXmlName(property.Name);
-                        if (property.Value.ValueKind == JsonValueKind.Array)
+                        if (value.ValueKind == JsonValueKind.Array)
                         {
-                            AddJsonElementToXmlDocument(document, parent, validXmlName, property.Value);
+                            AddJsonElementToXmlDocument(document, parent, validXmlName, value, xmlMappingStrategy);
                         }
                         else
                         {
-                            var childElement = document.CreateElement(validXmlName);
+                            XmlElement childElement;
+                            if (nsUsed != null)
+                            {
+                                childElement = document.CreateElement(validXmlName, nsUsed);
+                            }
+                            else
+                            {
+                                childElement = document.CreateElement(validXmlName);
+                            }
                             parent.AppendChild(childElement);
-                            AddJsonElementToXmlDocument(document, childElement, validXmlName, property.Value);
+                            AddJsonElementToXmlDocument(document, childElement, validXmlName, value, xmlMappingStrategy);
                         }
                     }
                 }
@@ -756,26 +901,29 @@ public static class JsonConverter
         switch (valueKind)
         {
             case JsonValueKind.Object:
-                foreach (var property in node.AsObject())
+                var (allNamedNs, allNs, props) = XmlPreloadJsonNode(node, xmlMappingStrategy);
+                foreach (var (name, value) in allNs)
                 {
-                    var (isAttribute, name) = xmlMappingStrategy(property.Key);
-
+                    XmlConverter.CreateXAttribute(parent, name, value, null);
+                }
+                foreach (var (isAttribute, name, validXmlName, nsUsed, nsPreName, nsPostName, value) in props)
+                {
                     if (isAttribute)
                     {
-                        XmlConverter.CreateXAttribute(parent, name, property.Value);
+                        XmlConverter.CreateXAttribute(parent, name, value, nsUsed);
                     }
                     else
                     {
-                        var validXmlName = XmlConverter.MakeValidXmlName(name);
-                        if (property.Value?.GetValueKind() == JsonValueKind.Array)
+                        if (value?.GetValueKind() == JsonValueKind.Array)
                         {
-                            AddJsonNodeToXml(parent, property.Value, validXmlName, xmlMappingStrategy);
+                            AddJsonNodeToXml(parent, value, validXmlName, xmlMappingStrategy);
                         }
                         else
                         {
-                            var childElement = new XElement(validXmlName);
+                            XName xname = nsUsed == null ? XName.Get(name) : XName.Get(nsPostName!, nsUsed);
+                            XElement childElement = new (xname);
                             parent.Add(childElement);
-                            AddJsonNodeToXml(childElement, property.Value, validXmlName, xmlMappingStrategy);
+                            AddJsonNodeToXml(childElement, value, validXmlName, xmlMappingStrategy);
                         }
                     }
                 }
@@ -814,18 +962,30 @@ public static class JsonConverter
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
-                foreach (var property in element.EnumerateObject())
+                var (allNamedNs, allNs, props) = XmlPreloadJsonElement(element, xmlMappingStrategy);
+                foreach (var (name, value) in allNs)
                 {
-                    var validXmlName = XmlConverter.MakeValidXmlName(property.Name);
-                    if (property.Value.ValueKind == JsonValueKind.Array)
+                    XmlConverter.CreateXAttribute(parent, name, value, null);
+                }
+                foreach (var (isAttribute, name, validXmlName, nsUsed, nsPreName, nsPostName, value) in props)
+                {
+                    if (isAttribute)
                     {
-                        AddJsonElementToXml(parent, property.Value, validXmlName, xmlMappingStrategy);
+                        XmlConverter.CreateXAttribute(parent, name, value, nsUsed);
                     }
                     else
                     {
-                        var childElement = new XElement(validXmlName);
-                        parent.Add(childElement);
-                        AddJsonElementToXml(childElement, property.Value, validXmlName, xmlMappingStrategy);
+                        if (value.ValueKind == JsonValueKind.Array)
+                        {
+                            AddJsonElementToXml(parent, value, validXmlName, xmlMappingStrategy);
+                        }
+                        else
+                        {
+                            XName xname = nsUsed == null ? XName.Get(name) : XName.Get(nsPostName!, nsUsed);
+                            XElement childElement = new(xname);
+                            parent.Add(childElement);
+                            AddJsonElementToXml(childElement, value, validXmlName, xmlMappingStrategy);
+                        }
                     }
                 }
                 break;

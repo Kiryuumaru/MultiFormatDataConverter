@@ -19,6 +19,18 @@ public static class DataSamples
           <BoolTrue>true</BoolTrue>
           <BoolFalse>false</BoolFalse>
           <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+          <ArgedProp xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <xsi:ArgedStringProp>Hello arged</xsi:ArgedStringProp>
+            <xsi:ArgedIntProp>22</xsi:ArgedIntProp>
+            <StringProp>Hello arged</StringProp>
+            <IntProp>22</IntProp>
+            <LongProp>234567890123456789</LongProp>
+            <DecimalProp>23456.78</DecimalProp>
+            <DoubleProp>2.3456</DoubleProp>
+            <BoolTrueProp>true</BoolTrueProp>
+            <BoolFalseProp>false</BoolFalseProp>
+            <NullProp xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+          </ArgedProp>
           <ArrayPropSimple>Item1</ArrayPropSimple>
           <ArrayPropSimple>Item2</ArrayPropSimple>
           <ArrayPropMixedTypes>Item1</ArrayPropMixedTypes>

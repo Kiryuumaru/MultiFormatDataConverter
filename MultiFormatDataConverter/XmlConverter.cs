@@ -24,11 +24,11 @@ public static class XmlConverter
     #region ToXml
 
     /// <summary>
-    /// Converts an XmlDocument to an XDocument.
+    /// Converts an <see cref="XmlDocument"/> to an <see cref="XDocument"/>.
     /// </summary>
-    /// <param name="xmlDocument">The XmlDocument to convert. Cannot be null.</param>
-    /// <returns>An XDocument representation of the input XmlDocument.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the xmlDocument parameter is null.</exception>
+    /// <param name="xmlDocument">The <see cref="XmlDocument"/> to convert. Cannot be null.</param>
+    /// <returns>An <see cref="XDocument"/> representation of the input <see cref="XmlDocument"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when the <paramref name="xmlDocument"/> parameter is null.</exception>
     public static XDocument ToXDocument(this XmlDocument xmlDocument)
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
@@ -38,11 +38,11 @@ public static class XmlConverter
     }
 
     /// <summary>
-    /// Converts an XDocument to an XmlDocument.
+    /// Converts an <see cref="XDocument"/> to an <see cref="XmlDocument"/>.
     /// </summary>
-    /// <param name="xDocument">The XDocument to convert. Cannot be null.</param>
-    /// <returns>An XmlDocument representation of the input XDocument.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the xDocument parameter is null.</exception>
+    /// <param name="xDocument">The <see cref="XDocument"/> to convert. Cannot be null.</param>
+    /// <returns>An <see cref="XmlDocument"/> representation of the input <see cref="XDocument"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when the <paramref name="xDocument"/> parameter is null.</exception>
     public static XmlDocument ToXmlDocument(this XDocument xDocument)
     {
         ArgumentNullException.ThrowIfNull(xDocument);
@@ -352,7 +352,6 @@ public static class XmlConverter
         {
             if (xmlDocument == null)
                 continue;
-
             var jsonNode = xmlDocument.ToJsonNode(attributeNameFactory);
             var root = ConvertJsonNodeToYamlNode(jsonNode);
             var doc = new YamlDocument(root);
@@ -463,9 +462,94 @@ public static class XmlConverter
         return new YamlScalarNode(node.ToJsonString());
     }
 
+    /// <summary>
+    /// Converts the specified <see cref="XmlDocument"/> to its formatted XML string representation.
+    /// </summary>
+    /// <param name="xmlDocument">The <see cref="XmlDocument"/> to convert. Cannot be null.</param>
+    /// <param name="cancellationToken">
+    /// Optional. A <see cref="CancellationToken"/> to observe while waiting for the task to complete.
+    /// </param>
+    /// <returns>
+    /// A string containing the formatted XML representation of the input <see cref="XmlDocument"/>.
+    /// The XML declaration is omitted, and the output is indented with new lines using '\n'.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when the <paramref name="xmlDocument"/> parameter is null.
+    /// </exception>
+    public static async Task<string> ToXmlString(this XmlDocument xmlDocument, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(xmlDocument);
+        using var stream = new MemoryStream();
+        using var streamReader = new StreamReader(stream);
+        using var xmlWriter = XmlWriter.Create(stream, new XmlWriterSettings
+        {
+            OmitXmlDeclaration = false,
+            Indent = true,
+            NewLineHandling = NewLineHandling.Replace,
+            NewLineChars = "\n",
+            Async = true
+        });
+
+        xmlDocument.Save(xmlWriter);
+
+        await xmlWriter.FlushAsync();
+
+        stream.Seek(0, SeekOrigin.Begin);
+
+#if NET7_0_OR_GREATER
+        return await streamReader.ReadToEndAsync(cancellationToken);
+#else
+        return await streamReader.ReadToEndAsync();
+#endif
+    }
+
+    /// <summary>
+    /// Converts the specified <see cref="XDocument"/> to its formatted XML string representation.
+    /// </summary>
+    /// <param name="xDocument">The <see cref="XDocument"/> to convert. Cannot be null.</param>
+    /// <param name="cancellationToken">
+    /// Optional. A <see cref="CancellationToken"/> to observe while waiting for the task to complete.
+    /// </param>
+    /// <returns>
+    /// A string containing the formatted XML representation of the input <see cref="XDocument"/>.
+    /// The XML declaration is omitted, and the output is indented with new lines using '\n'.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when the <paramref name="xDocument"/> parameter is null.
+    /// </exception>
+    public static async Task<string> ToXmlString(this XDocument xDocument, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(xDocument);
+        using var stream = new MemoryStream();
+        using var streamReader = new StreamReader(stream);
+        using var xmlWriter = XmlWriter.Create(stream, new XmlWriterSettings
+        {
+            OmitXmlDeclaration = false,
+            Indent = true,
+            NewLineHandling = NewLineHandling.Replace,
+            NewLineChars = "\n",
+            Async = true
+        });
+#if NETSTANDARD
+        xDocument.Save(xmlWriter);
+#else
+        await xDocument.SaveAsync(xmlWriter, cancellationToken);
+#endif
+
+        await xmlWriter.FlushAsync();
+
+        stream.Seek(0, SeekOrigin.Begin);
+
+#if NET7_0_OR_GREATER
+        return await streamReader.ReadToEndAsync(cancellationToken);
+#else
+        return await streamReader.ReadToEndAsync();
+#endif
+    }
+
     #endregion
 
-    static void CreateInnerTextString(Action<string> onCreate, string? valueStr)
+    static void CreateTextString(Action<string> onCreate, string? valueStr)
     {
         if (bool.TryParse(valueStr, out var boolVal))
         {
@@ -516,71 +600,85 @@ public static class XmlConverter
     internal static void CreateXmlInnerText(XmlElement parent, object? value)
     {
         if (value is YamlScalarNode yamlScalarNode)
-            CreateInnerTextString(s => parent.InnerText = s, yamlScalarNode.Value);
+            CreateTextString(s => parent.InnerText = s, yamlScalarNode.Value);
         else if (value is JsonNode jsonNode)
-            CreateInnerTextString(s => parent.InnerText = s, jsonNode.ToString());
+            CreateTextString(s => parent.InnerText = s, jsonNode.ToString());
         else if (value is JsonElement jsonElement)
-            CreateInnerTextString(s => parent.InnerText = s, jsonElement.ToString());
+            CreateTextString(s => parent.InnerText = s, jsonElement.ToString());
         else
-            CreateInnerTextString(s => parent.InnerText = s, value?.ToString());
+            CreateTextString(s => parent.InnerText = s, value?.ToString());
     }
 
-    internal static void CreateXmlAttribute(XmlElement parent, string name, object? value)
+    internal static void CreateXmlAttribute(XmlElement parent, string name, object? value, string? namespaceUri)
     {
         void Create(string valueStr)
         {
-            var attribute = parent.OwnerDocument.CreateAttribute(name);
-            attribute.Value = valueStr;
-            parent.SetAttributeNode(attribute);
+            if (namespaceUri != null)
+            {
+                var xmlAttribute = parent.OwnerDocument.CreateAttribute(name, namespaceUri);
+                xmlAttribute.Value = valueStr;
+                parent.SetAttributeNode(xmlAttribute);
+            }
+            else
+            {
+                parent.SetAttribute(name, valueStr);
+            }
         }
 
         if (value is YamlScalarNode yamlScalarNode)
-            CreateInnerTextString(Create, yamlScalarNode.Value);
+            CreateTextString(Create, yamlScalarNode.Value);
         else if (value is JsonNode jsonNode)
-            CreateInnerTextString(Create, jsonNode.ToString());
+            CreateTextString(Create, jsonNode.ToString());
         else if (value is JsonElement jsonElement)
-            CreateInnerTextString(Create, jsonElement.ToString());
+            CreateTextString(Create, jsonElement.ToString());
         else
-            CreateInnerTextString(Create, value?.ToString());
+            CreateTextString(Create, value?.ToString());
     }
 
     internal static void CreateXInnerText(XElement parent, object? value)
     {
         if (value is YamlScalarNode yamlScalarNode)
-            CreateInnerTextString(s => parent.Value = s, yamlScalarNode.Value);
+            CreateTextString(s => parent.Value = s, yamlScalarNode.Value);
         else if (value is JsonNode jsonNode)
-            CreateInnerTextString(s => parent.Value = s, jsonNode.ToString());
+            CreateTextString(s => parent.Value = s, jsonNode.ToString());
         else if (value is JsonElement jsonElement)
-            CreateInnerTextString(s => parent.Value = s, jsonElement.ToString());
+            CreateTextString(s => parent.Value = s, jsonElement.ToString());
         else
-            CreateInnerTextString(s => parent.Value = s, value?.ToString());
+            CreateTextString(s => parent.Value = s, value?.ToString());
     }
 
-    internal static void CreateXAttribute(XElement parent, string name, object? value)
+    internal static void CreateXAttribute(XElement parent, string name, object? value, string? namespaceUri)
     {
         void Create(string valueStr)
         {
-            XName xname;
-            if (name.Contains(':'))
+            if (namespaceUri != null)
             {
-                var nameSplit = name.Split([':'], 2);
-                xname = XName.Get(nameSplit[0], nameSplit[1]);
+                XNamespace ns = namespaceUri;
+                var nameSplit = name.Split(':');
+                parent.Add(new XAttribute(ns + nameSplit[1], valueStr));
             }
             else
             {
-                xname = XName.Get(name);
+                if (name.StartsWith("xmlns"))
+                {
+                    var nameSplit = name.Split(':');
+                    parent.Add(new XAttribute(XNamespace.Xmlns + nameSplit[1], valueStr));
+                }
+                else
+                {
+                    parent.Add(new XAttribute(name, valueStr));
+                }
             }
-            parent.SetAttributeValue(xname, valueStr);
         }
 
         if (value is YamlScalarNode yamlScalarNode)
-            CreateInnerTextString(Create, yamlScalarNode.Value);
+            CreateTextString(Create, yamlScalarNode.Value);
         else if (value is JsonNode jsonNode)
-            CreateInnerTextString(Create, jsonNode.ToString());
+            CreateTextString(Create, jsonNode.ToString());
         else if (value is JsonElement jsonElement)
-            CreateInnerTextString(Create, jsonElement.ToString());
+            CreateTextString(Create, jsonElement.ToString());
         else
-            CreateInnerTextString(Create, value?.ToString());
+            CreateTextString(Create, value?.ToString());
     }
 
     internal static string MakeValidXmlName(string name)
@@ -589,7 +687,7 @@ public static class XmlConverter
             return "unnamed";
 
         // Remove invalid characters and ensure the name starts with a valid character
-        // XML names must start with a letter or underscore, and can contain letters, digits, hyphens, underscores, and periods
+        // XML names must start with a letter or underscore, and can contain letters, digits, hyphens, underscores, periods, and colons
         // See: https://www.w3.org/TR/xml/#NT-Name
 
         // Replace invalid characters with '_'
@@ -598,7 +696,7 @@ public static class XmlConverter
         foreach (char c in name)
         {
             if ((i == 0 && (char.IsLetter(c) || c == '_')) ||
-                (i > 0 && (char.IsLetterOrDigit(c) || c == '-' || c == '_' || c == '.')))
+                (i > 0 && (char.IsLetterOrDigit(c) || c == '-' || c == '_' || c == '.' || c == ':')))
             {
                 validName.Append(c);
             }

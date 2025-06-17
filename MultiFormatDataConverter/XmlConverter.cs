@@ -19,18 +19,18 @@ using ArgumentNullException = System.ArgumentNullException;
 namespace MultiFormatDataConverter;
 
 /// <summary>
-/// Provides extension methods for converting between XML (XmlDocument, XDocument) and other data formats (JSON, YAML).
+/// Extension methods for converting between XML (<see cref="XmlDocument"/>, <see cref="XDocument"/>) and other data formats (JSON, YAML).
 /// </summary>
 public static class XmlConverter
 {
-    #region ToXml
+    #region XML <-> XDocument
 
     /// <summary>
     /// Converts an <see cref="XmlDocument"/> to an <see cref="XDocument"/>.
     /// </summary>
-    /// <param name="xmlDocument">The source <see cref="XmlDocument"/>.</param>
-    /// <returns>An <see cref="XDocument"/> representation.</returns>
-    /// <exception cref="ArgumentNullException">If <paramref name="xmlDocument"/> is null.</exception>
+    /// <param name="xmlDocument">Source XML document.</param>
+    /// <returns>Equivalent <see cref="XDocument"/>.</returns>
+    /// <exception cref="ArgumentNullException"/>
     public static XDocument ToXDocument(this XmlDocument xmlDocument)
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
@@ -41,9 +41,9 @@ public static class XmlConverter
     /// <summary>
     /// Converts an <see cref="XDocument"/> to an <see cref="XmlDocument"/>.
     /// </summary>
-    /// <param name="xDocument">The source <see cref="XDocument"/>.</param>
-    /// <returns>An <see cref="XmlDocument"/> representation.</returns>
-    /// <exception cref="ArgumentNullException">If <paramref name="xDocument"/> is null.</exception>
+    /// <param name="xDocument">Source XDocument.</param>
+    /// <returns>Equivalent <see cref="XmlDocument"/>.</returns>
+    /// <exception cref="ArgumentNullException"/>
     public static XmlDocument ToXmlDocument(this XDocument xDocument)
     {
         ArgumentNullException.ThrowIfNull(xDocument);
@@ -55,15 +55,15 @@ public static class XmlConverter
 
     #endregion
 
-    #region ToJson
+    #region XML <-> JSON
 
     /// <summary>
     /// Converts an <see cref="XmlDocument"/> to a <see cref="JsonNode"/>.
     /// </summary>
-    /// <param name="xmlDocument">The source <see cref="XmlDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping. Defaults to prefixing with '$'.</param>
-    /// <returns>A <see cref="JsonNode"/> representation.</returns>
-    /// <exception cref="ArgumentNullException">If <paramref name="xmlDocument"/> is null.</exception>
+    /// <param name="xmlDocument">Source XML document.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping (default: prefix with '$').</param>
+    /// <returns>JSON node representation.</returns>
+    /// <exception cref="ArgumentNullException"/>
     public static JsonNode? ToJsonNode(this XmlDocument xmlDocument, Func<string, string>? attributeNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
@@ -75,45 +75,42 @@ public static class XmlConverter
     /// <summary>
     /// Converts an <see cref="XDocument"/> to a <see cref="JsonNode"/>.
     /// </summary>
-    /// <param name="xDocument">The source <see cref="XDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping. Defaults to prefixing with '$'.</param>
-    /// <returns>A <see cref="JsonNode"/> representation.</returns>
-    /// <exception cref="ArgumentNullException">If <paramref name="xDocument"/> is null.</exception>
+    /// <param name="xDocument">Source XDocument.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>JSON node representation.</returns>
+    /// <exception cref="ArgumentNullException"/>
     public static JsonNode? ToJsonNode(this XDocument xDocument, Func<string, string>? attributeNameFactory = null)
         => xDocument.ToXmlDocument().ToJsonNode(attributeNameFactory);
 
     /// <summary>
     /// Converts the root's child elements of an <see cref="XmlDocument"/> to a <see cref="JsonArray"/>.
     /// </summary>
-    /// <param name="xmlDocument">The source <see cref="XmlDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="JsonArray"/> of child elements.</returns>
+    /// <param name="xmlDocument">Source XML document.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>JSON array of child elements.</returns>
     public static JsonArray ToJsonArray(this XmlDocument xmlDocument, Func<string, string>? attributeNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
-        var children = xmlDocument.DocumentElement?.ChildNodes.OfType<XmlElement>().ToList() ?? [];
+        var children = xmlDocument.DocumentElement?.ChildNodes.OfType<XmlElement>() ?? [];
         var factory = attributeNameFactory ?? (n => "$" + n);
-        var arr = new JsonArray();
-        foreach (var el in children)
-            arr.Add(ConvertElementToJsonNode(el, factory));
-        return arr;
+        return new JsonArray([.. children.Select(el => ConvertElementToJsonNode(el, factory))]);
     }
 
     /// <summary>
     /// Converts the root's child elements of an <see cref="XDocument"/> to a <see cref="JsonArray"/>.
     /// </summary>
-    /// <param name="xDocument">The source <see cref="XDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="JsonArray"/> of child elements.</returns>
+    /// <param name="xDocument">Source XDocument.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>JSON array of child elements.</returns>
     public static JsonArray ToJsonArray(this XDocument xDocument, Func<string, string>? attributeNameFactory = null)
         => xDocument.ToXmlDocument().ToJsonArray(attributeNameFactory);
 
     /// <summary>
     /// Converts an <see cref="XmlDocument"/> to a <see cref="JsonObject"/>.
     /// </summary>
-    /// <param name="xmlDocument">The source <see cref="XmlDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="JsonObject"/> representation.</returns>
+    /// <param name="xmlDocument">Source XML document.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>JSON object representation.</returns>
     public static JsonObject ToJsonObject(this XmlDocument xmlDocument, Func<string, string>? attributeNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
@@ -124,18 +121,18 @@ public static class XmlConverter
     /// <summary>
     /// Converts an <see cref="XDocument"/> to a <see cref="JsonObject"/>.
     /// </summary>
-    /// <param name="xDocument">The source <see cref="XDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="JsonObject"/> representation.</returns>
+    /// <param name="xDocument">Source XDocument.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>JSON object representation.</returns>
     public static JsonObject ToJsonObject(this XDocument xDocument, Func<string, string>? attributeNameFactory = null)
         => xDocument.ToXmlDocument().ToJsonObject(attributeNameFactory);
 
     /// <summary>
     /// Converts an <see cref="XmlDocument"/> to a <see cref="JsonDocument"/>.
     /// </summary>
-    /// <param name="xmlDocument">The source <see cref="XmlDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="JsonDocument"/> representation.</returns>
+    /// <param name="xmlDocument">Source XML document.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>JSON document representation.</returns>
     public static JsonDocument ToJsonDocument(this XmlDocument xmlDocument, Func<string, string>? attributeNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
@@ -146,21 +143,23 @@ public static class XmlConverter
     /// <summary>
     /// Converts an <see cref="XDocument"/> to a <see cref="JsonDocument"/>.
     /// </summary>
-    /// <param name="xDocument">The source <see cref="XDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="JsonDocument"/> representation.</returns>
+    /// <param name="xDocument">Source XDocument.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>JSON document representation.</returns>
     public static JsonDocument ToJsonDocument(this XDocument xDocument, Func<string, string>? attributeNameFactory = null)
         => xDocument.ToXmlDocument().ToJsonDocument(attributeNameFactory);
 
     private static JsonNode? ConvertElementToJsonNode(XmlElement element, Func<string, string> attributeNameFactory)
     {
-        // Group child elements by name
-        var childGroups = element.ChildNodes.OfType<XmlElement>().GroupBy(e => e.Name).ToDictionary(g => g.Key, g => g.ToList());
+        var childGroups = element.ChildNodes.OfType<XmlElement>().GroupBy(e => e.Name)
+            .ToDictionary(g => g.Key, g => g.ToList());
         var jsonObject = new JsonObject();
 
         // Text content
-        var textContent = string.Concat(element.ChildNodes.OfType<XmlText>().Select(t => t.Value)
-            .Concat(element.ChildNodes.OfType<XmlCDataSection>().Select(c => c.Value)));
+        var textContent = string.Concat(
+            element.ChildNodes.OfType<XmlText>().Select(t => t.Value)
+            .Concat(element.ChildNodes.OfType<XmlCDataSection>().Select(c => c.Value))
+        );
         if (!string.IsNullOrWhiteSpace(textContent))
             jsonObject.Add("#text", JsonConverter.CreateJsonValue(textContent));
 
@@ -186,32 +185,32 @@ public static class XmlConverter
 
     #endregion
 
-    #region ToYaml
+    #region XML <-> YAML
 
     /// <summary>
     /// Converts an <see cref="XmlDocument"/> to a <see cref="YamlStream"/>.
     /// </summary>
-    /// <param name="xmlDocument">The source <see cref="XmlDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="YamlStream"/> representation.</returns>
+    /// <param name="xmlDocument">Source XML document.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>YAML stream representation.</returns>
     public static YamlStream ToYamlStream(this XmlDocument xmlDocument, Func<string, string>? attributeNameFactory = null)
         => new[] { xmlDocument }.ToYamlStream(attributeNameFactory);
 
     /// <summary>
     /// Converts an <see cref="XDocument"/> to a <see cref="YamlStream"/>.
     /// </summary>
-    /// <param name="xDocument">The source <see cref="XDocument"/>.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="YamlStream"/> representation.</returns>
+    /// <param name="xDocument">Source XDocument.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>YAML stream representation.</returns>
     public static YamlStream ToYamlStream(this XDocument xDocument, Func<string, string>? attributeNameFactory = null)
         => new[] { xDocument }.ToYamlStream(attributeNameFactory);
 
     /// <summary>
     /// Converts a collection of <see cref="XmlDocument"/> to a <see cref="YamlStream"/>.
     /// </summary>
-    /// <param name="xmlDocuments">The source documents.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="YamlStream"/> representation.</returns>
+    /// <param name="xmlDocuments">Source XML documents.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>YAML stream representation.</returns>
     public static YamlStream ToYamlStream(this IEnumerable<XmlDocument> xmlDocuments, Func<string, string>? attributeNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(xmlDocuments);
@@ -228,9 +227,9 @@ public static class XmlConverter
     /// <summary>
     /// Converts a collection of <see cref="XDocument"/> to a <see cref="YamlStream"/>.
     /// </summary>
-    /// <param name="xDocuments">The source documents.</param>
-    /// <param name="attributeNameFactory">Optional attribute name mapping.</param>
-    /// <returns>A <see cref="YamlStream"/> representation.</returns>
+    /// <param name="xDocuments">Source XDocuments.</param>
+    /// <param name="attributeNameFactory">Attribute name mapping.</param>
+    /// <returns>YAML stream representation.</returns>
     public static YamlStream ToYamlStream(this IEnumerable<XDocument> xDocuments, Func<string, string>? attributeNameFactory = null)
     {
         ArgumentNullException.ThrowIfNull(xDocuments);
@@ -251,22 +250,24 @@ public static class XmlConverter
         {
             JsonValue value => new YamlScalarNode(value.GetValue<object?>()?.ToString() ?? string.Empty),
             JsonArray array => new YamlSequenceNode(array.Select(ConvertJsonNodeToYamlNode).ToList()),
-            JsonObject obj => new YamlMappingNode(obj.Select(kvp => new KeyValuePair<YamlNode, YamlNode>(
-                new YamlScalarNode(kvp.Key), ConvertJsonNodeToYamlNode(kvp.Value))).ToList()),
+            JsonObject obj => new YamlMappingNode(obj.Select(kvp =>
+                new KeyValuePair<YamlNode, YamlNode>(
+                    new YamlScalarNode(kvp.Key), ConvertJsonNodeToYamlNode(kvp.Value)
+                )).ToList()),
             _ => new YamlScalarNode(node.ToJsonString())
         };
     }
 
     #endregion
 
-    #region ToString
+    #region XML String Output
 
     /// <summary>
     /// Converts an <see cref="XmlDocument"/> to a formatted XML string.
     /// </summary>
-    /// <param name="xmlDocument">The source <see cref="XmlDocument"/>.</param>
-    /// <param name="cancellationToken">Optional cancellation token.</param>
-    /// <returns>A formatted XML string.</returns>
+    /// <param name="xmlDocument">Source XML document.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Formatted XML string.</returns>
     public static async Task<string> ToXmlString(this XmlDocument xmlDocument, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(xmlDocument);
@@ -293,9 +294,9 @@ public static class XmlConverter
     /// <summary>
     /// Converts an <see cref="XDocument"/> to a formatted XML string.
     /// </summary>
-    /// <param name="xDocument">The source <see cref="XDocument"/>.</param>
-    /// <param name="cancellationToken">Optional cancellation token.</param>
-    /// <returns>A formatted XML string.</returns>
+    /// <param name="xDocument">Source XDocument.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Formatted XML string.</returns>
     public static async Task<string> ToXmlString(this XDocument xDocument, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(xDocument);
@@ -327,6 +328,7 @@ public static class XmlConverter
 
     #region Helpers
 
+    // Helper methods for XML/JSON/YAML conversion (unchanged, but can be further refactored if needed)
     static void CreateTextString(Action<string> onCreate, string? valueStr)
     {
         if (bool.TryParse(valueStr, out var boolVal))

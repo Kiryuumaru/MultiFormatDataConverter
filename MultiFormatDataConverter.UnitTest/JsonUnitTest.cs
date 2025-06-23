@@ -18,6 +18,8 @@ public class JsonUnitTest
         var expectedJsonObject = JsonSerializer.Deserialize<JsonObject>(jsonString);
         var expectedJsonNode = JsonSerializer.Deserialize<JsonNode>(jsonString);
         var expectedJsonArray = new JsonArray(expectedJsonObject?.DeepClone(), expectedJsonObject?.DeepClone());
+        var expectedJsonElement = expectedJsonDocument!.RootElement;
+        var expectedJsonElementArray = JsonDocument.Parse("[" + jsonString + "," + jsonString + "]").RootElement;
 
         // Act
         var converted_JsonDocument_ToJsonNode = await expectedJsonDocument?.ToJsonNode()!;
@@ -26,17 +28,41 @@ public class JsonUnitTest
         var converted_JsonNode_ToJsonDocument = await expectedJsonNode?.ToJsonDocument()!;
         var converted_JsonArray_ToJsonDocument = await expectedJsonArray?.ToJsonDocument()!;
 
+        var converted_JsonElement_ToJsonNode = await expectedJsonElement.ToJsonNode();
+        var converted_JsonElement_ToJsonObject = await expectedJsonElement.ToJsonObject();
+        var converted_JsonElementArray_ToJsonArray = await expectedJsonElementArray.ToJsonArray();
+
+        var converted_JsonNode_ToJsonElement = await expectedJsonNode!.ToJsonElement();
+        var converted_JsonObject_ToJsonElement = await expectedJsonObject!.ToJsonElement();
+        var converted_JsonArray_ToJsonElement = await expectedJsonArray!.ToJsonElement();
+
         var roundTrip_JsonDocument_ToJsonNode = await converted_JsonDocument_ToJsonNode?.ToJsonDocument()!;
         var roundTrip_JsonDocument_ToJsonObject = await converted_JsonDocument_ToJsonObject?.ToJsonDocument()!;
         var roundTrip_JsonObject_ToJsonDocument = await converted_JsonObject_ToJsonDocument?.ToJsonObject()!;
         var roundTrip_JsonNode_ToJsonDocument = await converted_JsonNode_ToJsonDocument?.ToJsonNode()!;
         var roundTrip_JsonArray_ToJsonDocument = await converted_JsonArray_ToJsonDocument?.ToJsonArray()!;
 
+        var roundTrip_JsonElement_ToJsonNode_ToJsonElement = await converted_JsonElement_ToJsonNode.ToJsonElement();
+        var roundTrip_JsonElement_ToJsonObject_ToJsonElement = await converted_JsonElement_ToJsonObject.ToJsonElement();
+        var roundTrip_JsonElementArray_ToJsonArray_ToJsonElement = await converted_JsonElementArray_ToJsonArray.ToJsonElement();
+
+        var roundTrip_JsonNode_ToJsonElement_ToJsonNode = await converted_JsonNode_ToJsonElement.ToJsonNode();
+        var roundTrip_JsonObject_ToJsonElement_ToJsonObject = await converted_JsonObject_ToJsonElement.ToJsonObject();
+        var roundTrip_JsonArray_ToJsonElement_ToJsonArray = await converted_JsonArray_ToJsonElement.ToJsonArray();
+
         var roundTrip_JsonDocument_ToJsonNode_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonDocument_ToJsonNode!.RootElement.GetRawText())!;
         var roundTrip_JsonDocument_ToJsonObject_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonDocument_ToJsonObject!.RootElement.GetRawText())!;
         var roundTrip_JsonObject_ToJsonDocument_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonObject_ToJsonDocument!.ToString())!;
         var roundTrip_JsonNode_ToJsonDocument_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonNode_ToJsonDocument!.ToString())!;
         var roundTrip_JsonArray_ToJsonDocument_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonArray_ToJsonDocument!.ToString())!;
+
+        var roundTrip_JsonElement_ToJsonNode_ToJsonElement_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonElement_ToJsonNode_ToJsonElement!.GetRawText())!;
+        var roundTrip_JsonElement_ToJsonObject_ToJsonObject_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonElement_ToJsonObject_ToJsonElement!.ToString())!;
+        var roundTrip_JsonElementArray_ToJsonArray_ToJsonElement_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonElementArray_ToJsonArray_ToJsonElement!.ToString())!;
+
+        var roundTrip_JsonNode_ToJsonElement_ToJsonNode_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonNode_ToJsonElement_ToJsonNode!.ToString())!;
+        var roundTrip_JsonObject_ToJsonElement_ToJsonObject_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonObject_ToJsonElement_ToJsonObject!.ToString())!;
+        var roundTrip_JsonArray_ToJsonElement_ToJsonArray_ToTest = JsonSerializer.Deserialize<JsonNode>(roundTrip_JsonArray_ToJsonElement_ToJsonArray!.ToString())!;
 
         // Assert
         Assert.NotNull(converted_JsonDocument_ToJsonNode);
@@ -45,17 +71,33 @@ public class JsonUnitTest
         Assert.NotNull(converted_JsonNode_ToJsonDocument);
         Assert.NotNull(converted_JsonArray_ToJsonDocument);
 
+        Assert.NotNull(converted_JsonElement_ToJsonNode);
+        Assert.NotNull(converted_JsonElement_ToJsonObject);
+        Assert.NotNull(converted_JsonElementArray_ToJsonArray);
+
         Assert.NotNull(roundTrip_JsonDocument_ToJsonNode);
         Assert.NotNull(roundTrip_JsonDocument_ToJsonObject);
         Assert.NotNull(roundTrip_JsonObject_ToJsonDocument);
         Assert.NotNull(roundTrip_JsonNode_ToJsonDocument);
         Assert.NotNull(roundTrip_JsonArray_ToJsonDocument);
 
+        Assert.NotNull(roundTrip_JsonNode_ToJsonElement_ToJsonNode);
+        Assert.NotNull(roundTrip_JsonObject_ToJsonElement_ToJsonObject);
+        Assert.NotNull(roundTrip_JsonArray_ToJsonElement_ToJsonArray);
+
         Assert.True(JsonNode.DeepEquals(expectedJsonNode, roundTrip_JsonDocument_ToJsonNode_ToTest));
         Assert.True(JsonNode.DeepEquals(expectedJsonNode, roundTrip_JsonDocument_ToJsonObject_ToTest));
         Assert.True(JsonNode.DeepEquals(expectedJsonNode, roundTrip_JsonObject_ToJsonDocument_ToTest));
         Assert.True(JsonNode.DeepEquals(expectedJsonNode, roundTrip_JsonNode_ToJsonDocument_ToTest));
         Assert.True(JsonNode.DeepEquals(expectedJsonArray, roundTrip_JsonArray_ToJsonDocument_ToTest));
+
+        Assert.True(JsonNode.DeepEquals(expectedJsonNode, roundTrip_JsonElement_ToJsonNode_ToJsonElement_ToTest));
+        Assert.True(JsonNode.DeepEquals(expectedJsonObject, roundTrip_JsonElement_ToJsonObject_ToJsonObject_ToTest));
+        Assert.True(JsonNode.DeepEquals(expectedJsonArray, roundTrip_JsonElementArray_ToJsonArray_ToJsonElement_ToTest));
+
+        Assert.True(JsonNode.DeepEquals(expectedJsonNode, roundTrip_JsonNode_ToJsonElement_ToJsonNode_ToTest));
+        Assert.True(JsonNode.DeepEquals(expectedJsonObject, roundTrip_JsonObject_ToJsonElement_ToJsonObject_ToTest));
+        Assert.True(JsonNode.DeepEquals(expectedJsonArray, roundTrip_JsonArray_ToJsonElement_ToJsonArray_ToTest));
     }
 
     [Fact]

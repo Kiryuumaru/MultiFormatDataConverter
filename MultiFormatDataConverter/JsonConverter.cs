@@ -90,6 +90,75 @@ public static class JsonConverter
         return node.AsArray();
     }
 
+    /// <summary>
+    /// Converts a <see cref="JsonElement"/> to a <see cref="JsonNode"/> asynchronously.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown if parsing fails.</exception>
+    public static async Task<JsonNode> ToJsonNode(this JsonElement element, CancellationToken cancellationToken = default)
+    {
+        using var stream = new MemoryStream();
+        await using var writer = new Utf8JsonWriter(stream);
+        element.WriteTo(writer);
+        await writer.FlushAsync(cancellationToken);
+        stream.Position = 0;
+#if NET8_0_OR_GREATER
+        return await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Failed to parse JSON element as node.");
+#else
+        return JsonNode.Parse(stream)
+            ?? throw new InvalidOperationException("Failed to parse JSON element as node.");
+#endif
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonElement"/> to a <see cref="JsonObject"/> asynchronously.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown if the element is not an object.</exception>
+    public static async Task<JsonObject> ToJsonObject(this JsonElement element, CancellationToken cancellationToken = default)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException("The JSON element is not an object.");
+        var node = await ToJsonNode(element, cancellationToken);
+        return node.AsObject();
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonElement"/> to a <see cref="JsonArray"/> asynchronously.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown if the element is not an array.</exception>
+    public static async Task<JsonArray> ToJsonArray(this JsonElement element, CancellationToken cancellationToken = default)
+    {
+        if (element.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("The JSON element is not an array.");
+        var node = await ToJsonNode(element, cancellationToken);
+        return node.AsArray();
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonNode"/> to a <see cref="JsonElement"/> asynchronously.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown if the node is null.</exception>
+    public static async Task<JsonElement> ToJsonElement(this JsonNode jsonNode, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(jsonNode);
+        var document = await jsonNode.ToJsonDocument(cancellationToken);
+        return document.RootElement;
+    }
+
+    /// <summary>
+    /// Converts a <see cref="JsonObject"/> to a <see cref="JsonElement"/> asynchronously.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown if the object is null.</exception>
+    public static Task<JsonElement> ToJsonElement(this JsonObject jsonObject, CancellationToken cancellationToken = default)
+        => ToJsonElement(jsonObject as JsonNode, cancellationToken);
+
+    /// <summary>
+    /// Converts a <see cref="JsonArray"/> to a <see cref="JsonElement"/> asynchronously.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown if the array is null.</exception>
+    public static Task<JsonElement> ToJsonElement(this JsonArray jsonArray, CancellationToken cancellationToken = default)
+        => ToJsonElement(jsonArray as JsonNode, cancellationToken);
+
     private static async Task<JsonDocument> WriteAndParseAsync(JsonNode jsonNode, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(jsonNode);

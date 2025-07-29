@@ -520,7 +520,7 @@ public static class JsonConverter
         {
             if (isAttr)
                 XmlConverter.CreateXmlAttribute(parent, name, value, nsUsed);
-            else if (value?.GetValueKind() == JsonValueKind.Array)
+            else if (value is JsonArray)
                 AddJsonNodeToXmlDocument(doc, parent, validXmlName, value, mapping);
             else
             {
@@ -622,7 +622,7 @@ public static class JsonConverter
         {
             if (isAttr)
                 XmlConverter.CreateXAttribute(parent, name, value, nsUsed);
-            else if (value?.GetValueKind() == JsonValueKind.Array)
+            else if (value is JsonArray)
                 AddJsonNodeToXml(parent, value, validXmlName, mapping);
             else
             {

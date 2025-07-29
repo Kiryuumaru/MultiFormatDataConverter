@@ -22,6 +22,7 @@
 		<RepositoryUrl>https://github.com/Kiryuumaru/MultiFormatDataConverter</RepositoryUrl>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<UserSecretsId>1e83b3c2-0b12-4807-987a-45346accd6b8</UserSecretsId>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,12 +30,15 @@
 		<None Include="../README.md" Pack="true" PackagePath="" />
 	</ItemGroup>
 
+	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+		<PackageReference Include="System.Text.Json" Version="9.0.7" />
+	</ItemGroup>
+
 	<ItemGroup>
 
-	  <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="9.0.7" />
 		<PackageReference Include="PolySharp" Version="1.15.0">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="System.Text.Json" Version="9.0.7" />
 		<PackageReference Include="YamlDotNet" Version="16.3.0" />

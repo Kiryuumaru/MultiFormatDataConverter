@@ -16,6 +16,7 @@ DOTNET_GLOBAL_FILE="$SCRIPT_DIR//global.json"
 DOTNET_INSTALL_URL="https://dot.net/v1/dotnet-install.sh"
 DOTNET_CHANNEL="STS"
 
+export DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION=1
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
 export DOTNET_MULTILEVEL_LOOKUP=0
@@ -36,16 +37,7 @@ else
     # Download install script
     DOTNET_INSTALL_FILE="$TEMP_DIRECTORY/dotnet-install.sh"
     mkdir -p "$TEMP_DIRECTORY"
-
-    RETRY_TIMES=10
-    DELAY_SECONDS=5
-    for i in $(seq 1 $RETRY_TIMES); do
-        curl -Lsfo "$DOTNET_INSTALL_FILE" "$DOTNET_INSTALL_URL" && break
-        echo "Attempt $i/$RETRY_TIMES: Download of .NET installer failed. Retrying in $DELAY_SECONDS seconds..."
-        sleep $DELAY_SECONDS
-    done || { echo "Failed to download .NET installer after $RETRY_TIMES attempts."; exit 1; }
-    echo "Successfully downloaded .NET installer."
-
+    curl -Lsfo "$DOTNET_INSTALL_FILE" "$DOTNET_INSTALL_URL"
     chmod +x "$DOTNET_INSTALL_FILE"
 
     # If global.json exists, load expected version

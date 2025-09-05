@@ -79,6 +79,11 @@ jobs:
         fetch-tags: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_MULTIFORMATDATACONVERTERBUILD_CHECKOUT_FETCH_TAGS }}
         submodules: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_MULTIFORMATDATACONVERTERBUILD_CHECKOUT_SUBMODULES }}
         persist-credentials: true
+    - name: Download multi-format-data-converter pre_test artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./.nuke/temp/artifacts-download
+        pattern: pre_test___multi-format-data-converter___*
     - name: Cache Run
       uses: actions/cache@v4
       with:
@@ -90,11 +95,18 @@ jobs:
     - id: NUKE_RUN
       name: Run Nuke MultiFormatDataConverterBuild
       run: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_MULTIFORMATDATACONVERTERBUILD_RUN_SCRIPT }} Run --args "MultiFormatDataConverterBuild"
-    - name: Upload Artifacts
+    - name: Upload multi-format-data-converter build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: build___multi-format-data-converter___MULTIFORMATDATACONVERTERBUILD
-        path: ./.nuke/temp/artifacts-upload/*
+        path: ./.nuke/temp/artifacts-upload/multi-format-data-converter/*
+        if-no-files-found: error
+        retention-days: 1
+    - name: Upload common build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build___$common___MULTIFORMATDATACONVERTERBUILD
+        path: ./.nuke/temp/artifacts-upload/$common/*
         if-no-files-found: error
         retention-days: 1
     needs:
@@ -112,10 +124,16 @@ jobs:
         fetch-tags: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_TEST_LINUX_CHECKOUT_FETCH_TAGS }}
         submodules: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_TEST_LINUX_CHECKOUT_SUBMODULES }}
         persist-credentials: true
-    - name: Download Artifacts
+    - name: Download multi-format-data-converter pre_test artifacts
       uses: actions/download-artifact@v4
       with:
         path: ./.nuke/temp/artifacts-download
+        pattern: pre_test___multi-format-data-converter___*
+    - name: Download multi-format-data-converter build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./.nuke/temp/artifacts-download
+        pattern: build___multi-format-data-converter___*
     - name: Cache Run
       uses: actions/cache@v4
       with:
@@ -127,6 +145,20 @@ jobs:
     - id: NUKE_RUN
       name: Run Nuke TEST_LINUX
       run: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_TEST_LINUX_RUN_SCRIPT }} Run --args "TEST_LINUX"
+    - name: Upload multi-format-data-converter post_test artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: post_test___multi-format-data-converter___TEST_LINUX
+        path: ./.nuke/temp/artifacts-upload/multi-format-data-converter/*
+        if-no-files-found: error
+        retention-days: 1
+    - name: Upload common post_test artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: post_test___$common___TEST_LINUX
+        path: ./.nuke/temp/artifacts-upload/$common/*
+        if-no-files-found: error
+        retention-days: 1
     needs:
     - PRE_SETUP
     - MULTIFORMATDATACONVERTERBUILD
@@ -143,10 +175,16 @@ jobs:
         fetch-tags: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_TEST_WINDOWS_CHECKOUT_FETCH_TAGS }}
         submodules: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_TEST_WINDOWS_CHECKOUT_SUBMODULES }}
         persist-credentials: true
-    - name: Download Artifacts
+    - name: Download multi-format-data-converter pre_test artifacts
       uses: actions/download-artifact@v4
       with:
         path: ./.nuke/temp/artifacts-download
+        pattern: pre_test___multi-format-data-converter___*
+    - name: Download multi-format-data-converter build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./.nuke/temp/artifacts-download
+        pattern: build___multi-format-data-converter___*
     - name: Cache Run
       uses: actions/cache@v4
       with:
@@ -158,6 +196,20 @@ jobs:
     - id: NUKE_RUN
       name: Run Nuke TEST_WINDOWS
       run: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_TEST_WINDOWS_RUN_SCRIPT }} Run --args "TEST_WINDOWS"
+    - name: Upload multi-format-data-converter post_test artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: post_test___multi-format-data-converter___TEST_WINDOWS
+        path: ./.nuke/temp/artifacts-upload/multi-format-data-converter/*
+        if-no-files-found: error
+        retention-days: 1
+    - name: Upload common post_test artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: post_test___$common___TEST_WINDOWS
+        path: ./.nuke/temp/artifacts-upload/$common/*
+        if-no-files-found: error
+        retention-days: 1
     needs:
     - PRE_SETUP
     - MULTIFORMATDATACONVERTERBUILD
@@ -174,11 +226,21 @@ jobs:
         fetch-tags: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_MULTIFORMATDATACONVERTERPUBLISH_CHECKOUT_FETCH_TAGS }}
         submodules: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_MULTIFORMATDATACONVERTERPUBLISH_CHECKOUT_SUBMODULES }}
         persist-credentials: true
-    - name: Download artifacts
+    - name: Download multi-format-data-converter pre_test artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./.nuke/temp/artifacts-download
+        pattern: pre_test___multi-format-data-converter___*
+    - name: Download multi-format-data-converter build artifacts
       uses: actions/download-artifact@v4
       with:
         path: ./.nuke/temp/artifacts-download
         pattern: build___multi-format-data-converter___*
+    - name: Download multi-format-data-converter post_test artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./.nuke/temp/artifacts-download
+        pattern: post_test___multi-format-data-converter___*
     - name: Cache Run
       uses: actions/cache@v4
       with:
@@ -190,11 +252,11 @@ jobs:
     - id: NUKE_RUN
       name: Run Nuke MultiFormatDataConverterPublish
       run: ${{ needs.PRE_SETUP.outputs.NUKE_PRE_SETUP_MULTIFORMATDATACONVERTERPUBLISH_RUN_SCRIPT }} Run --args "MultiFormatDataConverterPublish"
-    - name: Upload Artifacts
+    - name: Upload common publish artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: publish___multi-format-data-converter___MULTIFORMATDATACONVERTERPUBLISH
-        path: ./.nuke/temp/artifacts-upload/*
+        name: publish___$common___MULTIFORMATDATACONVERTERPUBLISH
+        path: ./.nuke/temp/artifacts-upload/$common/*
         if-no-files-found: error
         retention-days: 1
     needs:
@@ -216,11 +278,11 @@ jobs:
         fetch-tags: true
         submodules: recursive
         persist-credentials: true
-    - name: Download Artifacts
+    - name: Download artifacts
       uses: actions/download-artifact@v4
       with:
         path: ./.nuke/temp/artifacts-download
-        pattern: publish___*
+        pattern: '*___*'
     - name: Run Nuke PipelinePostSetup
       run: chmod +x ./build.sh && ./build.sh PipelinePostSetup
     needs:
